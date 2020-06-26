@@ -37,17 +37,6 @@ class RunMCTS(object):
         self.mcts_node_select = self.paras['node_select']
         self.DNN_model_path = self.paras['DNN_model_path']
 
-    def getCompare(self, tup):
-        return tup[1]
-
-    def makeDecsion(self, states, action_rewards):
-
-        best = max(action_rewards, key=self.getCompare)
-        action = best[0]
-        for i in range(len(states)):
-            states[i] = states[i].takeAction(action)
-
-        return states, action
 
     def run(self):
 

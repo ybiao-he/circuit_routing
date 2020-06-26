@@ -21,7 +21,7 @@ Then write all the parameters in the file [paras.txt](paras.txt) and run by:
 python3 main.py paras.txt
 ```
 
-The output file is a csv file storing the paths. The path is stored as a set of node (a tuple with two variables), and the paths of different nets are splitted by (-1, -1). For example, [(1,2),(2,2),(2,3),(-1,-1),(3,6),(3,7),(-1,-1)] can be a returned paths, where (1,2)-->(2,2)-->(2,3) and (3,6)-->(3,7) paths connecting two nets.
+The output file is a csv file storing the paths. The path is stored as a set of node (a tuple with two variables), and the paths of different nets are splitted by (-1, -1). For example, [(1,2),(2,2),(2,3),(-1,-1),(3,6),(3,7),(-1,-1)] can be a returned set of paths, where (1,2)-->(2,2)-->(2,3) and (3,6)-->(3,7) are paths connecting two nets.
 
 Note that if new dnn model and test board needed, then,
 
