@@ -1,5 +1,5 @@
 board_path ./testboard.csv //give the path of PCB board
-DNN_model_path ./actor.h5  //give the path of pretrained DNN model
+DNN_model_path ../Policy_Pretrain/actor.h5  //give the path of pretrained DNN model
 rollout_times 20 //define the number of iterations
 multiprocess false //true or false
 saved_actions saved_actions.csv // give the path of the file to save the results (actions)
