@@ -51,9 +51,7 @@ class RunMCTS(object):
 
     def run(self):
 
-        actions_save = []
         board = np.genfromtxt(self.board_path, delimiter=',')
-        # idx = 0
 
         if not os.path.exists(self.saved_board):
             os.mkdir(self.saved_board)
@@ -64,8 +62,6 @@ class RunMCTS(object):
                 rewardType=self.mcts_reward, nodeSelect=self.mcts_node_select, 
                 explorationConstant=0.5/math.sqrt(2))
        	routed_paths = MCTS_tem.search(initialState=initialState)
-
-        # print(routed_paths)
 
         self.write_to_file(routed_paths, initialState.finish.values())
 

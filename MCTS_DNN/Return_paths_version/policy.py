@@ -14,7 +14,10 @@ class policies(object):
         self.direction_list = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
     def network(self, state):
-
+    """
+    This function is for DNN-based policy without DFS. It is not used in our currecnt method
+    """
+        route_paths = []
         while not state.isTerminal():
             try:
                 feature = np.array([state.board.ravel()])
@@ -29,9 +32,10 @@ class policies(object):
 
             except IndexError:
                 raise Exception("Non-terminal state has no possible actions: ")
+            route_paths.append(action)
             state = state.takeAction(action)
 
-        return state.getReward()
+        return state.getReward(), [route_paths]
 
     def randomRoute(self, state):
 
@@ -44,15 +48,6 @@ class policies(object):
 
             path = self.randomDFS(board, state.action_node, state.finish[state.pairs_idx], pin_idx)
 
-            # # draw path gotten from DFS
-            # draw_board = np.copy(board)
-            # for p in path:
-            #     draw_board[p] = 1
-            # from view import view 
-            # display = view()
-            # display.display(draw_board)
-            # print(state.action_node)
-            # print(path)
             if len(path)==1:
                 # print("failed to find a path to the target node")
                 return 1/(board.shape[0]*board.shape[1]), route_paths
@@ -138,22 +133,3 @@ class policies(object):
         # print(act_idx_to_poss)
         ret_action = np.random.choice(list(act_idx_to_poss.keys()), p=list(act_idx_to_poss.values()))
         return self.direction_list[ret_action]
-
-# test function get_action
-# p = policies(False)
-# action = p.get_action([(-1,0),(1,0)], [0.1, 0.3, 0.5, 0.1])
-# print(action)
-
-# from env import circuitBoard
-# if __name__ == '__main__':
-
-#     filename = '../GenPlacement/boards/board4.csv'
-#     board = np.genfromtxt(filename, delimiter=',')
-
-#     policy = policies(False)
-
-#     initialState = circuitBoard(board)
-
-#     print(initialState.start[2])
-#     print(initialState.finish[2])
-#     print( policy.randomRoute(initialState) )
