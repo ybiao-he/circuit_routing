@@ -8,6 +8,7 @@ from scipy.spatial import distance
 import numpy as np
 import gym
 from gym import spaces
+from stable_baselines.common.noise import AdaptiveParamNoiseSpec
 
 
 class CREnv(gym.Env):
@@ -26,7 +27,7 @@ class CREnv(gym.Env):
 
         n_actions = 4
         self.action_space = spaces.Discrete(n_actions)
-        self.observation_space = spaces.Box(low=0, high=self.max_value+1, shape=(1,900,1), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=self.max_value+1, shape=(40,40,1), dtype=np.float32)
 
         self.reset()
 
@@ -55,7 +56,7 @@ class CREnv(gym.Env):
 
         self.board[self.action_node] = self.max_value+1
 
-        return np.array(self.board.reshape((1,900,1))).astype(np.float32)
+        return np.array(self.board.reshape((40,40,1))).astype(np.float32)
 
 
     def getPossibleActions(self):
@@ -128,7 +129,7 @@ class CREnv(gym.Env):
         info = {}
 
 
-        return np.array(self.board.reshape(1,900,1)).astype(np.float32), reward, done, info
+        return np.array(self.board.reshape(40,40,1)).astype(np.float32), reward, done, info
 
     def isTerminal(self):
 
@@ -191,29 +192,56 @@ for step in range(n_steps):
 
 
 # Try it with Stable-Baselines
-from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER
+from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER, DDPG
 from stable_baselines.common.cmd_util import make_vec_env
+import os
+from stable_baselines import results_plotter
+from stable_baselines.bench import Monitor
 
+# Create log dir
+log_dir = "tmp/"
+os.makedirs(log_dir, exist_ok=True)
+
+# Create and wrap the environment
 # Instantiate the env
 env = CREnv()
 # wrap it
+# env = make_vec_env(lambda: env, n_envs=1)
+
+env = Monitor(env, log_dir)
+
 env = make_vec_env(lambda: env, n_envs=1)
 
+# Add some param noise for exploration
+param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0.1)
 # Train the agent
-model = ACER('MlpPolicy', env, verbose=1).learn(1000)
+model = ACER('CnnPolicy', env, param_noise=param_noise, verbose=1)
 
-# Test the trained agent
-obs = env.reset()
-n_steps = 20
-for step in range(n_steps):
-    action, _ = model.predict(obs, deterministic=True)
-    print("Step {}".format(step + 1))
-    print("Action: ", action)
-    obs, reward, done, info = env.step(action)
-    print('obs=', obs.shape, 'reward=', reward, 'done=', done)
-    env.render(mode='console')
-    if done:
-        # Note that the VecEnv resets automatically
-        # when a done signal is encountered
-        print("Goal reached!", "reward=", reward)
-        break
+# Train the agent
+time_steps = 10000
+model.learn(total_timesteps=int(time_steps))
+
+
+save_path = os.path.join(log_dir, 'best_model')
+model.save(save_path)
+
+# import matplotlib.pyplot as plt
+
+# results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
+# plt.show()
+
+# # Test the trained agent
+# obs = env.reset()
+# n_steps = 20
+# for step in range(n_steps):
+#     action, _ = model.predict(obs, deterministic=True)
+#     print("Step {}".format(step + 1))
+#     print("Action: ", action)
+#     obs, reward, done, info = env.step(action)
+#     print('obs=', obs.shape, 'reward=', reward, 'done=', done)
+#     env.render(mode='console')
+#     if done:
+#         # Note that the VecEnv resets automatically
+#         # when a done signal is encountered
+#         print("Goal reached!", "reward=", reward)
+#         break
