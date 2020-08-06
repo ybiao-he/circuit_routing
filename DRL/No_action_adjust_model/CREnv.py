@@ -103,18 +103,20 @@ class CREnv(gym.Env):
 
             action_tmp = self.directions[action]
 
-            self.board[self.action_node] = 1
+            # self.board[self.action_node] = 1
             
             self.action_node = (self.action_node[0]+action_tmp[0], self.action_node[1]+action_tmp[1])
 
             if self.board[self.action_node] == 0:
                 self.board[self.action_node] = self.max_value+1
             elif self.action_node == self.finish[self.pairs_idx]:
-                self.board[self.action_node] = 1
+                # self.board[self.action_node] = 1
                 self.pairs_idx += 1
                 self.action_node = self.start.get(self.pairs_idx)
                 if self.action_node is not None:
                     self.board[self.action_node] = self.max_value+1
+
+            self.max_value += 1
 
             self.path_length += 1
 
@@ -128,8 +130,9 @@ class CREnv(gym.Env):
 
         info = {}
 
-
-        return np.array(self.board.reshape(40,40,1)).astype(np.float32), reward, done, info
+        state = np.array(self.board.reshape(40,40,1)).astype(np.float32)/(self.max_value-1.0)
+        
+        return state, reward, done, info
 
     def isTerminal(self):
 
@@ -192,11 +195,15 @@ for step in range(n_steps):
 
 
 # Try it with Stable-Baselines
-from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER, DDPG
+from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER, DDPG, TRPO
 from stable_baselines.common.cmd_util import make_vec_env
 import os
 from stable_baselines import results_plotter
 from stable_baselines.bench import Monitor
+
+import tensorflow as tf
+
+from stable_baselines.deepq.policies import CnnPolicy
 
 # Create log dir
 log_dir = "tmp/"
@@ -212,10 +219,12 @@ env = Monitor(env, log_dir)
 
 env = make_vec_env(lambda: env, n_envs=1)
 
-# Add some param noise for exploration
-param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0.1)
+policy_kwargs = dict(act_fun=tf.nn.relu, net_arch=[256, 256, 256])
+
 # Train the agent
-model = ACER('CnnPolicy', env, param_noise=param_noise, verbose=1)
+model = PPO2('CnnPolicy', env, policy_kwargs=policy_kwargs, verbose=1, cliprange=0.2)
+
+# model = DQN(CnnPolicy, env, verbose=1)
 
 # Train the agent
 time_steps = 10000
@@ -230,18 +239,18 @@ model.save(save_path)
 # results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
 # plt.show()
 
-# # Test the trained agent
-# obs = env.reset()
-# n_steps = 20
-# for step in range(n_steps):
-#     action, _ = model.predict(obs, deterministic=True)
-#     print("Step {}".format(step + 1))
-#     print("Action: ", action)
-#     obs, reward, done, info = env.step(action)
-#     print('obs=', obs.shape, 'reward=', reward, 'done=', done)
-#     env.render(mode='console')
-#     if done:
-#         # Note that the VecEnv resets automatically
-#         # when a done signal is encountered
-#         print("Goal reached!", "reward=", reward)
-#         break
+# Test the trained agent
+obs = env.reset()
+n_steps = 20
+for step in range(n_steps):
+    action, _ = model.predict(obs, deterministic=True)
+    print("Step {}".format(step + 1))
+    print("Action: ", action)
+    obs, reward, done, info = env.step(action)
+    print('obs=', obs.shape, 'reward=', reward, 'done=', done)
+    env.render(mode='console')
+    if done:
+        # Note that the VecEnv resets automatically
+        # when a done signal is encountered
+        print("Goal reached!", "reward=", reward)
+        break

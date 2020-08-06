@@ -5,8 +5,6 @@ from stable_baselines.common.policies import ActorCriticPolicy, register_policy,
 from stable_baselines.common.vec_env import DummyVecEnv
 from stable_baselines import A2C
 
-from stable_baselines.common.tf_layers import conv, linear, conv_to_fc, lstm
-
 import numpy as np
 
 # Custom MLP policy of three layers of size 128 each for the actor and 2 layers of 32 for the critic,
@@ -18,18 +16,11 @@ class CRPolicy(ActorCriticPolicy):
         with tf.variable_scope("model", reuse=reuse):
             activ = tf.nn.relu
 
-            layer_1 = activ(conv(self.processed_obs, 'c1', n_filters=256, filter_size=5, stride=4, init_scale=np.sqrt(2), **kwargs))
-            layer_2 = activ(conv(layer_1, 'c2', n_filters=256, filter_size=3, stride=2, init_scale=np.sqrt(2), **kwargs))
-            layer_3 = activ(conv(layer_2, 'c3', n_filters=256, filter_size=3, stride=1, init_scale=np.sqrt(2), **kwargs))
-            layer_3 = conv_to_fc(layer_3)
-            extracted_features = activ(linear(layer_3, 'fc1', n_hidden=512, init_scale=np.sqrt(2)))
-
-
-            # extracted_features = nature_cnn(self.processed_obs, **kwargs)
+            extracted_features = nature_cnn(self.processed_obs, **kwargs)
             extracted_features = tf.layers.flatten(extracted_features)
 
             pi_h = extracted_features
-            for i, layer_size in enumerate([64, 64]):
+            for i, layer_size in enumerate([128, 128, 128]):
                 pi_h = activ(tf.layers.dense(pi_h, layer_size, name='pi_fc' + str(i)))
             pi_latent = pi_h
 
@@ -50,8 +41,6 @@ class CRPolicy(ActorCriticPolicy):
 
         action_dist, value, neglogp = self.sess.run([self.policy_proba, self.value_flat, self.neglogp],
                                     {self.obs_ph: obs})
-        print(np.sum(obs))
-        print(action_dist)
         action_dist = action_dist[0]
         action_dist *= self.get_action_mask(obs)
         action_dist = action_dist/sum(action_dist)
@@ -67,7 +56,6 @@ class CRPolicy(ActorCriticPolicy):
 
         action_dist = self.sess.run(self.policy_proba, {self.obs_ph: obs})
 
-        
         action_dist = action_dist[0]
         action_dist *= self.get_action_mask(obs)
         action_dist = action_dist/sum(action_dist)
@@ -82,26 +70,19 @@ class CRPolicy(ActorCriticPolicy):
 
         directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        # print(obs)
-
-        target_value = obs[0][0][0][1]
-
-        board = obs[0,0:40,0:40,0]
+        board = obs.reshape((40,40))
 
         # find action node from obs/board
         action_node_tmp = np.where(board == np.amax(board))
         action_node = (action_node_tmp[0][0], action_node_tmp[1][0])
 
         # find target node for current path
-        # value = np.amax(board)
-        # for i in range(board.shape[0]):
-        #     for j in range(board.shape[1]):
-        #         if board[i,j]>1 and board[i,j]<value:
-        #             value = board[i, j]
-        #             target = (i, j)
-        target = np.where(board==target_value)
-        # print("target values are ---------------------")
-        # print(target)
+        value = np.amax(board)
+        for i in range(board.shape[0]):
+            for j in range(board.shape[1]):
+                if board[i,j]>1 and board[i,j]<value:
+                    value = board[i, j]
+                    target = (i, j)
 
         action_mask = np.zeros(4, dtype=np.float32)
 

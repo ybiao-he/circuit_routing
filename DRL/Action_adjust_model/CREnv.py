@@ -24,9 +24,11 @@ class CREnv(gym.Env):
 
         self.max_value = np.amax(board)
 
+        self.state_shape = (40, 40, 2)
+
         n_actions = 4
         self.action_space = spaces.Discrete(n_actions)
-        self.observation_space = spaces.Box(low=0, high=self.max_value+1, shape=(40,40,1), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=self.max_value+1, shape=self.state_shape, dtype=np.float32)
 
         self.reset()
 
@@ -55,7 +57,14 @@ class CREnv(gym.Env):
 
         self.board[self.action_node] = self.max_value+1
 
-        return np.array(self.board.reshape((40,40,1))).astype(np.float32)
+        board = self.board.reshape(40,40,1).astype(np.float32)
+        net_idx_mat = np.ones(board.shape)*self.pairs_idx
+        one_sample = np.concatenate((board, net_idx_mat), axis=2)
+        state = np.array(one_sample/(self.max_value-1.0))
+
+        # print(state)
+
+        return state
 
 
     def getPossibleActions(self):
@@ -85,20 +94,29 @@ class CREnv(gym.Env):
 
     def step(self, action):
 
+
         action_tmp = self.directions[action]
 
-        self.board[self.action_node] = 1
+        # self.board[self.action_node] = 1
         
         self.action_node = (self.action_node[0]+action_tmp[0], self.action_node[1]+action_tmp[1])
 
         if self.board[self.action_node] == 0:
             self.board[self.action_node] = self.max_value+1
         elif self.action_node == self.finish[self.pairs_idx]:
-            self.board[self.action_node] = 1
+            # self.board[self.action_node] = 1
             self.pairs_idx += 1
             self.action_node = self.start.get(self.pairs_idx)
             if self.action_node is not None:
                 self.board[self.action_node] = self.max_value+1
+
+        self.max_value += 1
+
+        # compute state
+        board = self.board.reshape(40,40,1).astype(np.float32)
+        net_idx_mat = np.ones(board.shape)*self.pairs_idx
+        one_sample = np.concatenate((board, net_idx_mat), axis=2)
+        state = np.array(one_sample/(self.max_value-1.0))
 
         self.path_length += 1
 
@@ -108,7 +126,8 @@ class CREnv(gym.Env):
 
         info = {}
 
-        return np.array(self.board.reshape(40,40,1)).astype(np.float32), reward, done, info
+        return state, reward, done, info
+
 
     def isTerminal(self):
 
@@ -171,21 +190,45 @@ for step in range(n_steps):
 
 
 # Try it with Stable-Baselines
-from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER
-from CRPolicy import CRPolicy
+from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER, DDPG, TRPO, PPO1
 from stable_baselines.common.cmd_util import make_vec_env
+from CRPolicy import CRPolicy
+import os
+from stable_baselines import results_plotter
+from stable_baselines.bench import Monitor
 
+# Create log dir
+log_dir = "tmp/"
+os.makedirs(log_dir, exist_ok=True)
+
+# Create and wrap the environment
 # Instantiate the env
 env = CREnv()
-
 # wrap it
+# env = make_vec_env(lambda: env, n_envs=1)
+
+env = Monitor(env, log_dir)
+
 env = make_vec_env(lambda: env, n_envs=1)
 
 # env_test = ACER(CRPolicy, env, verbose=1).get_env()
 # print(env_test.board)
 # Train the agent
-model = ACER(CRPolicy, env, verbose=1).learn(10000)
+model = PPO2(CRPolicy, env, verbose=1)
 # model = ACER("CnnPolicy", env, verbose=1).learn(1000)
+
+# Train the agent
+time_steps = 100000
+model.learn(total_timesteps=int(time_steps))
+
+save_path = os.path.join(log_dir, 'best_model')
+model.save(save_path)
+
+# import matplotlib.pyplot as plt
+
+# results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
+# plt.show()
+
 
 # Test the trained agent
 obs = env.reset()
