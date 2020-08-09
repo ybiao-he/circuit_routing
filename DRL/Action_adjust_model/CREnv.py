@@ -112,11 +112,17 @@ class CREnv(gym.Env):
 
         self.max_value += 1
 
-        # compute state
+        # # compute state (embedding 1)
+        # board = self.board.reshape(40,40,1).astype(np.float32)
+        # net_idx_mat = np.ones(board.shape)*self.pairs_idx
+        # one_sample = np.concatenate((board, net_idx_mat), axis=2)
+        # state = np.array(one_sample/(self.max_value-1.0))
+
+        # compute state (embedding 2)
         board = self.board.reshape(40,40,1).astype(np.float32)
         net_idx_mat = np.ones(board.shape)*self.pairs_idx
         one_sample = np.concatenate((board, net_idx_mat), axis=2)
-        state = np.array(one_sample/(self.max_value-1.0))
+        state = np.array(one_sample)
 
         self.path_length += 1
 
@@ -214,7 +220,10 @@ env = make_vec_env(lambda: env, n_envs=1)
 # env_test = ACER(CRPolicy, env, verbose=1).get_env()
 # print(env_test.board)
 # Train the agent
-model = PPO2(CRPolicy, env, verbose=1)
+# model = PPO2(CRPolicy, env, verbose=1)
+model = PPO2(policy=CRPolicy, env=env, n_steps=512, nminibatches=4,
+             lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
+             learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
 # model = ACER("CnnPolicy", env, verbose=1).learn(1000)
 
 # Train the agent
