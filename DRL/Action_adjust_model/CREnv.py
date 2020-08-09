@@ -224,10 +224,10 @@ model.learn(total_timesteps=int(time_steps))
 save_path = os.path.join(log_dir, 'best_model')
 model.save(save_path)
 
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-# results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
-# plt.show()
+results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
+plt.show()
 
 
 # Test the trained agent
