@@ -48,12 +48,21 @@ class CRPolicy(ActorCriticPolicy):
 
     def step(self, obs, state=None, mask=None, deterministic=False):
 
+        action_mask = np.zeros(4, dtype=np.float32)
+        for i in range(len(action_mask)):
+            action_mask[i] = obs[0][0][i][1]
+            obs[0][0][i][1] = obs[0][0][i+len(action_mask)][1]
+
         action_dist, value, neglogp = self.sess.run([self.policy_proba, self.value_flat, self.neglogp],
                                     {self.obs_ph: obs})
-        print(np.sum(obs))
+        # if np.sum(obs) < 100:
+        #     print("this is a wierd obs----------------")
+        #     print(np.sum(obs))
+        #     np.savetxt("weird_obs.csv", obs[0,0:40,0:40,0], delimiter=',')
         print(action_dist)
         action_dist = action_dist[0]
-        action_dist *= self.get_action_mask(obs)
+        # action_dist *= self.get_action_mask(obs)
+        action_dist *= action_mask
         action_dist = action_dist/sum(action_dist)
 
         if deterministic:
@@ -78,41 +87,41 @@ class CRPolicy(ActorCriticPolicy):
         return self.sess.run(self.value_flat, {self.obs_ph: obs})
 
 
-    def get_action_mask(self, obs):
+    # def get_action_mask(self, obs):
 
-        directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+    #     directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        # print(obs)
+    #     # print(obs)
 
-        target_value = obs[0][0][0][1]
+    #     target_value = obs[0][0][0][1]
 
-        board = obs[0,0:40,0:40,0]
+    #     board = obs[0,0:40,0:40,0]
 
-        # find action node from obs/board
-        action_node_tmp = np.where(board == np.amax(board))
-        action_node = (action_node_tmp[0][0], action_node_tmp[1][0])
+    #     # find action node from obs/board
+    #     action_node_tmp = np.where(board == np.amax(board))
+    #     action_node = (action_node_tmp[0][0], action_node_tmp[1][0])
 
-        # find target node for current path
-        # value = np.amax(board)
-        # for i in range(board.shape[0]):
-        #     for j in range(board.shape[1]):
-        #         if board[i,j]>1 and board[i,j]<value:
-        #             value = board[i, j]
-        #             target = (i, j)
-        target = np.where(board==target_value)
-        # print("target values are ---------------------")
-        # print(target)
+    #     # find target node for current path
+    #     # value = np.amax(board)
+    #     # for i in range(board.shape[0]):
+    #     #     for j in range(board.shape[1]):
+    #     #         if board[i,j]>1 and board[i,j]<value:
+    #     #             value = board[i, j]
+    #     #             target = (i, j)
+    #     target = np.where(board==target_value)
+    #     # print("target values are ---------------------")
+    #     # print(target)
 
-        action_mask = np.zeros(4, dtype=np.float32)
+    #     action_mask = np.zeros(4, dtype=np.float32)
 
-        for i in range(len(directions)):
-            x = action_node[0] + directions[i][0]
-            y = action_node[1] + directions[i][1]
-            if 0 <= x < board.shape[0] and 0 <= y < board.shape[1]:
-                if (x,y) == target or board[(x,y)] == 0:
-                    action_mask[i] = 1
+    #     for i in range(len(directions)):
+    #         x = action_node[0] + directions[i][0]
+    #         y = action_node[1] + directions[i][1]
+    #         if 0 <= x < board.shape[0] and 0 <= y < board.shape[1]:
+    #             if (x,y) == target or board[(x,y)] == 0:
+    #                 action_mask[i] = 1
 
-        return action_mask
+    #     return action_mask
 
 
 # # Create and wrap the environment

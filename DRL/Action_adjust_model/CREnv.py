@@ -22,19 +22,21 @@ class CREnv(gym.Env):
 
         self.directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        self.max_value = np.amax(board)
+        # self.max_value = np.amax(board) + 1
 
         self.state_shape = (40, 40, 2)
 
         n_actions = 4
         self.action_space = spaces.Discrete(n_actions)
-        self.observation_space = spaces.Box(low=0, high=self.max_value+1, shape=self.state_shape, dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=1600, shape=self.state_shape, dtype=np.float32)
 
         self.reset()
 
     def reset(self):
 
         self.board = np.copy(self.board_backup)
+
+        self.max_value = np.amax(self.board)+1
         self.pairs_idx = 2
 
         self.path_length = 0
@@ -53,14 +55,28 @@ class CREnv(gym.Env):
                     self.max_pair_idx = max(self.max_pair_idx, abs(self.board[i,j]))
                 self.board[i,j] = abs(self.board[i,j])
         # initialize the action node
+        print(self.start)
         self.action_node = self.start[self.pairs_idx]
 
-        self.board[self.action_node] = self.max_value+1
+        self.board[self.action_node] = self.max_value
+        self.board[self.finish[self.pairs_idx]] = self.max_value
+         
+        # state embedding 1
+        # board = self.board.reshape(40,40,1).astype(np.float32)
+        # net_idx_mat = np.ones(board.shape)*self.pairs_idx
+        # one_sample = np.concatenate((board, net_idx_mat), axis=2)
+        # state = np.array(one_sample/(self.max_value-1.0))
+
+        # state embedding 2
+        action_mask = self.getActionProbMask(self.getPossibleActions())
 
         board = self.board.reshape(40,40,1).astype(np.float32)
-        net_idx_mat = np.ones(board.shape)*self.pairs_idx
-        one_sample = np.concatenate((board, net_idx_mat), axis=2)
-        state = np.array(one_sample/(self.max_value-1.0))
+        net_idx_mat = np.ones(board.shape)*self.max_value
+        one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
+        for i in range(len(action_mask)):
+            one_sample[0][i][1] = action_mask[i]
+        state = np.array(one_sample)
+
 
         # print(state)
 
@@ -82,14 +98,14 @@ class CREnv(gym.Env):
 
         return possible_actions
 
-    # def getActionProbMask(self, possible_actions):
+    def getActionProbMask(self, possible_actions):
 
-    #     act_prob_mask = [0]*len(self.directions)
-    #     for act in possible_actions:
-    #         idx_action = self.directions.index(act)
-    #         act_prob_mask[idx_action] = 1
+        act_prob_mask = np.zeros(len(self.directions), dtype=np.float32)
+        for act in possible_actions:
+            idx_action = self.directions.index(act)
+            act_prob_mask[idx_action] = 1.0
 
-    #     return np.array(act_prob_mask)
+        return np.array(act_prob_mask)
 
 
     def step(self, action):
@@ -101,16 +117,19 @@ class CREnv(gym.Env):
         
         self.action_node = (self.action_node[0]+action_tmp[0], self.action_node[1]+action_tmp[1])
 
+        print(self.action_node)
+
         if self.board[self.action_node] == 0:
-            self.board[self.action_node] = self.max_value+1
+            self.board[self.action_node] = self.max_value
         elif self.action_node == self.finish[self.pairs_idx]:
             # self.board[self.action_node] = 1
             self.pairs_idx += 1
             self.action_node = self.start.get(self.pairs_idx)
             if self.action_node is not None:
-                self.board[self.action_node] = self.max_value+1
+                self.board[self.action_node] = self.max_value
 
-        self.max_value += 1
+        self.board[self.finish.get(self.pairs_idx)] = self.max_value
+        # print(self.finish.get(self.pairs_idx))
 
         # # compute state (embedding 1)
         # board = self.board.reshape(40,40,1).astype(np.float32)
@@ -119,12 +138,19 @@ class CREnv(gym.Env):
         # state = np.array(one_sample/(self.max_value-1.0))
 
         # compute state (embedding 2)
+        action_mask = self.getActionProbMask(self.getPossibleActions())
+
         board = self.board.reshape(40,40,1).astype(np.float32)
-        net_idx_mat = np.ones(board.shape)*self.pairs_idx
-        one_sample = np.concatenate((board, net_idx_mat), axis=2)
+        net_idx_mat = np.ones(board.shape)*self.max_value
+        one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
+        for i in range(len(action_mask)):
+            one_sample[0][i][1] = action_mask[i]
         state = np.array(one_sample)
 
+        print(np.sum(state))
         self.path_length += 1
+
+        self.max_value += 1
 
         reward = self.getReward()
 
@@ -221,7 +247,7 @@ env = make_vec_env(lambda: env, n_envs=1)
 # print(env_test.board)
 # Train the agent
 # model = PPO2(CRPolicy, env, verbose=1)
-model = PPO2(policy=CRPolicy, env=env, n_steps=512, nminibatches=4,
+model = PPO2(policy=CRPolicy, env=env, n_steps=1600, nminibatches=4,
              lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
              learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
 # model = ACER("CnnPolicy", env, verbose=1).learn(1000)
@@ -235,7 +261,7 @@ model.save(save_path)
 
 import matplotlib.pyplot as plt
 
-results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
+results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "PPO2 for routing")
 plt.show()
 
 
