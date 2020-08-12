@@ -1,5 +1,3 @@
-# In this environment, the filled numbers for route are only 1s.
-# The filled number for terminal nodes are calculated as i+1, where i=1,2,3,...
 from __future__ import division
 
 from copy import deepcopy
@@ -23,17 +21,19 @@ class CREnv(gym.Env):
 
         self.directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        self.max_value = np.amax(board)
+        # self.max_value = np.amax(board)
 
         n_actions = 4
         self.action_space = spaces.Discrete(n_actions)
-        self.observation_space = spaces.Box(low=0, high=self.max_value+1, shape=(40,40,1), dtype=np.float32)
+        self.observation_space = spaces.Box(low=0, high=1600, shape=(40,40,2), dtype=np.float32)
 
         self.reset()
 
     def reset(self):
 
         self.board = np.copy(self.board_backup)
+
+        self.max_value = np.amax(self.board)+1
         self.pairs_idx = 2
 
         self.path_length = 0
@@ -54,9 +54,16 @@ class CREnv(gym.Env):
         # initialize the action node
         self.action_node = self.start[self.pairs_idx]
 
-        self.board[self.action_node] = self.max_value+1
+        self.board[self.action_node] = self.max_value
 
-        return np.array(self.board.reshape((40,40,1))).astype(np.float32)
+        self.board[self.finish[self.pairs_idx]] = self.max_value
+
+        board = self.board.reshape(40,40,1).astype(np.float32)
+        net_idx_mat = np.ones(board.shape)*self.max_value
+        one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
+        state = np.array(one_sample)
+
+        return state
 
 
     def getPossibleActions(self):
@@ -87,16 +94,6 @@ class CREnv(gym.Env):
                 return False
         return False
 
-    # def getActionProbMask(self, possible_actions):
-
-    #     act_prob_mask = [0]*len(self.directions)
-    #     for act in possible_actions:
-    #         idx_action = self.directions.index(act)
-    #         act_prob_mask[idx_action] = 1
-
-    #     return np.array(act_prob_mask)
-
-
     def step(self, action):
 
         if self.legalAction(action):
@@ -108,29 +105,46 @@ class CREnv(gym.Env):
             self.action_node = (self.action_node[0]+action_tmp[0], self.action_node[1]+action_tmp[1])
 
             if self.board[self.action_node] == 0:
-                self.board[self.action_node] = self.max_value+1
+                self.board[self.action_node] = self.max_value
             elif self.action_node == self.finish[self.pairs_idx]:
                 # self.board[self.action_node] = 1
                 self.pairs_idx += 1
                 self.action_node = self.start.get(self.pairs_idx)
                 if self.action_node is not None:
-                    self.board[self.action_node] = self.max_value+1
+                    self.board[self.action_node] = self.max_value
+
+            self.board[self.finish.get(self.pairs_idx)] = self.max_value
+
+            board = self.board.reshape(40,40,1).astype(np.float32)
+            net_idx_mat = np.ones(board.shape)*self.max_value
+            one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
+            state = np.array(one_sample)
+
+            # print(np.sum(state))
+            self.path_length += 1
 
             self.max_value += 1
 
-            self.path_length += 1
-
             reward = self.getReward()
 
+            done = self.isTerminal()
 
         else:
-            reward = -2
 
-        done = self.isTerminal()
+            self.board[self.action_node] += self.max_value
+
+            board = self.board.reshape(40,40,1).astype(np.float32)
+            net_idx_mat = np.ones(board.shape)*self.pairs_idx
+            one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
+            state = np.array(one_sample)
+
+            reward = -1
+
+            done = True
 
         info = {}
 
-        state = np.array(self.board.reshape(40,40,1)).astype(np.float32)/(self.max_value-1.0)
+        # state = np.array(self.board.reshape(40,40,1)).astype(np.float32)/(self.max_value-1.0)
         
         return state, reward, done, info
 
@@ -151,7 +165,7 @@ class CREnv(gym.Env):
             # return -self.board.shape[0]*self.board.shape[1]/10
         # elif self.action_node is None:
         #     return -self.path_length/10
-        return -1.0
+        return 1.0
 
     def render(self, mode='console'):
         if mode != 'console':
@@ -195,7 +209,7 @@ for step in range(n_steps):
 
 
 # Try it with Stable-Baselines
-from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER, DDPG, TRPO
+from stable_baselines import DQN, PPO2, A2C, ACKTR, ACER, DDPG, TRPO, PPO1
 from stable_baselines.common.cmd_util import make_vec_env
 import os
 from stable_baselines import results_plotter
@@ -204,6 +218,8 @@ from stable_baselines.bench import Monitor
 import tensorflow as tf
 
 from stable_baselines.deepq.policies import CnnPolicy
+
+from CRPolicy import CRPolicy
 
 # Create log dir
 log_dir = "tmp/"
@@ -217,31 +233,35 @@ env = CREnv()
 
 env = Monitor(env, log_dir)
 
-env = make_vec_env(lambda: env, n_envs=1)
+# env = make_vec_env(lambda: env, n_envs=1)
 
-policy_kwargs = dict(act_fun=tf.nn.relu, net_arch=[256, 256, 256])
+# policy_kwargs = dict(act_fun=tf.nn.relu, net_arch=[256, 256, 256])
 
 # Train the agent
-model = PPO2('CnnPolicy', env, policy_kwargs=policy_kwargs, verbose=1, cliprange=0.2)
+# model = PPO2("CnnPolicy", env, policy_kwargs=policy_kwargs, verbose=1, cliprange=0.2)
+
+model = PPO1(CRPolicy, env, verbose=1)
 
 # model = DQN(CnnPolicy, env, verbose=1)
 
 # Train the agent
-time_steps = 10000
+time_steps = 100000
 model.learn(total_timesteps=int(time_steps))
 
 
 save_path = os.path.join(log_dir, 'best_model')
 model.save(save_path)
 
-# import matplotlib.pyplot as plt
+# model = PPO1.load(save_path)
 
-# results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "ACER for routing")
-# plt.show()
+import matplotlib.pyplot as plt
+
+results_plotter.plot_results([log_dir], time_steps, results_plotter.X_TIMESTEPS, "PPO1 for routing")
+plt.show()
 
 # Test the trained agent
 obs = env.reset()
-n_steps = 20
+n_steps = 200
 for step in range(n_steps):
     action, _ = model.predict(obs, deterministic=True)
     print("Step {}".format(step + 1))
