@@ -59,11 +59,14 @@ class CRPolicy(ActorCriticPolicy):
         #     print("this is a wierd obs----------------")
         #     print(np.sum(obs))
         #     np.savetxt("weird_obs.csv", obs[0,0:40,0:40,0], delimiter=',')
-        print(action_dist)
+        print(action_dist, action_mask)
         action_dist = action_dist[0]
         # action_dist *= self.get_action_mask(obs)
         action_dist *= action_mask
-        action_dist = action_dist/sum(action_dist)
+        if np.sum(action_dist) == 0:
+            action_dist = np.array(action_mask/sum(action_mask))
+        else:
+            action_dist = action_dist/sum(action_dist)
 
         if deterministic:
             action = np.where(action_dist == np.amax(action_dist))[0]

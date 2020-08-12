@@ -1,5 +1,3 @@
-# In this environment, the filled numbers for route are only 1s.
-# The filled number for terminal nodes are calculated as i+1, where i=1,2,3,...
 from __future__ import division
 
 from copy import deepcopy
@@ -59,7 +57,7 @@ class CREnv(gym.Env):
         self.action_node = self.start[self.pairs_idx]
 
         self.board[self.action_node] = self.max_value
-        self.board[self.finish[self.pairs_idx]] = self.max_value
+        # self.board[self.finish[self.pairs_idx]] = self.max_value
          
         # state embedding 1
         # board = self.board.reshape(40,40,1).astype(np.float32)
@@ -71,7 +69,7 @@ class CREnv(gym.Env):
         action_mask = self.getActionProbMask(self.getPossibleActions())
 
         board = self.board.reshape(40,40,1).astype(np.float32)
-        net_idx_mat = np.ones(board.shape)*self.max_value
+        net_idx_mat = np.ones(board.shape)*self.pairs_idx
         one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
         for i in range(len(action_mask)):
             one_sample[0][i][1] = action_mask[i]
@@ -128,7 +126,7 @@ class CREnv(gym.Env):
             if self.action_node is not None:
                 self.board[self.action_node] = self.max_value
 
-        self.board[self.finish.get(self.pairs_idx)] = self.max_value
+        # self.board[self.finish.get(self.pairs_idx)] = self.max_value
         # print(self.finish.get(self.pairs_idx))
 
         # # compute state (embedding 1)
@@ -141,7 +139,7 @@ class CREnv(gym.Env):
         action_mask = self.getActionProbMask(self.getPossibleActions())
 
         board = self.board.reshape(40,40,1).astype(np.float32)
-        net_idx_mat = np.ones(board.shape)*self.max_value
+        net_idx_mat = np.ones(board.shape)*self.pairs_idx
         one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
         for i in range(len(action_mask)):
             one_sample[0][i][1] = action_mask[i]
@@ -183,7 +181,7 @@ class CREnv(gym.Env):
     def render(self, mode='console'):
         if mode != 'console':
             raise NotImplementedError()
-        # agent is represented as a cross, rest as a dot
+
         print("------")
         print(self.action_node)
 
@@ -246,10 +244,10 @@ env = make_vec_env(lambda: env, n_envs=1)
 # env_test = ACER(CRPolicy, env, verbose=1).get_env()
 # print(env_test.board)
 # Train the agent
-# model = PPO2(CRPolicy, env, verbose=1)
-model = PPO2(policy=CRPolicy, env=env, n_steps=1600, nminibatches=4,
-             lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
-             learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
+model = PPO2(CRPolicy, env, verbose=1)
+# model = PPO2(policy=CRPolicy, env=env, n_steps=1600, nminibatches=4,
+#              lam=0.95, gamma=0.99, noptepochs=4, ent_coef=.01,
+#              learning_rate=lambda f: f * 2.5e-4, cliprange=lambda f: f * 0.1, verbose=1)
 # model = ACER("CnnPolicy", env, verbose=1).learn(1000)
 
 # Train the agent
