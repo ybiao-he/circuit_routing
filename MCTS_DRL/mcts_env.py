@@ -10,6 +10,8 @@ import numpy as np
 class circuitBoard():
     def __init__(self, board):
 
+        self.board_backup = np.copy(board)
+
         self.board = np.copy(board)
 
         self.pairs_idx = 2

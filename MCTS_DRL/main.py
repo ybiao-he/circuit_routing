@@ -1,6 +1,6 @@
 import numpy as np
 
-from mcts_policy import policies
+from policy import policies
 from mcts_env import circuitBoard
 from mcts import mcts
 import sys
@@ -37,7 +37,6 @@ class RunMCTS(object):
         self.mcts_node_select = self.paras['node_select']
         self.DNN_model_path = self.paras['DNN_model_path']
 
-
     def run(self):
 
         board = np.genfromtxt(self.board_path, delimiter=',')
@@ -51,13 +50,9 @@ class RunMCTS(object):
                 rewardType=self.mcts_reward, nodeSelect=self.mcts_node_select, 
                 explorationConstant=0.5/math.sqrt(2))
 
-        # MCTS_tem = mcts(iterationLimit=self.rollout_times, rewardType=self.mcts_reward, 
-        #     nodeSelect=self.mcts_node_select, 
-        #     explorationConstant=0.5/math.sqrt(2))
        	routed_paths = MCTS_tem.search(initialState=initialState)
 
         self.write_to_file(routed_paths, initialState.finish.values())
-
 
     def write_to_file(self, route_paths, target_pins):
 
@@ -76,6 +71,3 @@ if __name__ == '__main__':
     run = RunMCTS(sys.argv[1])
     print(run.paras)
     run.run()
-
-
-

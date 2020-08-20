@@ -133,7 +133,6 @@ class policies(object):
         # normalize the distribution of actions
         # print(act_idx_to_poss)
         poss_sum = sum(act_idx_to_poss.values())
-        print(act_idx_to_poss.values())
         if poss_sum == 0:
             for a in act_idx_to_poss:
                 act_idx_to_poss[a] = 1/len(act_idx_to_poss.values()) 

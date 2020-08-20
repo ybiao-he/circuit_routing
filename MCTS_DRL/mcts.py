@@ -6,6 +6,10 @@ import random
 import numpy as np
 import os
 
+from copy import deepcopy
+
+import core_tf as core
+
 from functools import reduce
 
 def randomPolicy(state):
@@ -16,7 +20,6 @@ def randomPolicy(state):
             raise Exception("Non-terminal state has no possible actions: " + str(state))
         state = state.takeAction(action)
     return state.getReward()
-
 
 class treeNode():
     def __init__(self, state, parent, rewardType):
@@ -30,7 +33,6 @@ class treeNode():
         else:
             self.totalReward = float("-inf")
         self.children = {}
-
 
 class mcts():
     def __init__(self, timeLimit=None, iterationLimit=None, explorationConstant=1 / math.sqrt(2),
@@ -56,6 +58,8 @@ class mcts():
         self.nodeSelect = nodeSelect
 
         self.route_paths_saved = []
+
+        self.buf = core.Buffer(obs_dim=(40,40,2), act_dim=None, select_act_dim=4, size=1000)
 
     def search(self, initialState):
         self.root = treeNode(initialState, None, self.rewardType)
@@ -90,6 +94,9 @@ class mcts():
         else:
             route_paths = reduce(lambda x,y: x+y, route_paths)
             route_paths = select_by_node + route_paths
+
+        self.store_to_buf(route_paths)
+
         if reward_total>self.root.totalReward:
             self.route_paths_saved = route_paths
         # backpropagation
@@ -175,3 +182,20 @@ class mcts():
         for action, node in root.children.items():
             if node is bestChild:
                 return action
+
+    def store_to_buf(self, routed_path):
+
+        from CREnv import CREnv
+
+        cr_env = CREnv(board=self.root.state.board_backup)
+
+        for vertex in routed_path:
+            action = tuple(map(lambda i, j: i - j, vertex, cr_env.action_node))
+            action_idx = cr_env.directions.index(action)
+
+            embed_state, reward, done, info = cr_env.step(action_idx)
+
+            if self.buf.ptr<1000:
+                self.buf.store(embed_state, action_idx, np.array([0,0,0,1]), reward, 0, 0.5)
+
+        print(self.buf.obs_buf, self.buf.act_buf)
