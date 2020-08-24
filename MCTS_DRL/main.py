@@ -19,7 +19,7 @@ class RunMCTS(object):
 
         self.readParas(para_file)
 
-        self.policy = policies(load_policy=False, dnn_model_path=self.DNN_model_path)
+        self.policy = policies(obs_dim=(40,40,2), act_dim=4)
     
     def readParas(self, file_path):
         with open(file_path, 'r') as f:
@@ -46,7 +46,7 @@ class RunMCTS(object):
         
         initialState = circuitBoard(board)
 
-        MCTS_tem = mcts(iterationLimit=self.rollout_times, rolloutPolicy=self.policy.randomRoute,
+        MCTS_tem = mcts(iterationLimit=self.rollout_times, Policy=self.policy,
                 rewardType=self.mcts_reward, nodeSelect=self.mcts_node_select, 
                 explorationConstant=0.5/math.sqrt(2))
 

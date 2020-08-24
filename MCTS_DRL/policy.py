@@ -2,22 +2,26 @@ import numpy as np
 
 import random
 
-from keras.models import load_model
+import core_tf as core
+
+import tensorflow as tf
 
 class policies(object):
 
-    def __init__(self, load_policy, dnn_model_path):
-    
-        if load_policy:
-            self.policy_model = load_model(dnn_model_path)
-        else:
-            from keras.models import Sequential
-            from keras.layers import Dense, Conv2D, Flatten
-            self.policy_model = Sequential()
-            self.policy_model.add(Conv2D(64, kernel_size=3, activation='relu', input_shape=(40,40,1)))
-            self.policy_model.add(Conv2D(32, kernel_size=3, activation='relu'))
-            self.policy_model.add(Flatten())
-            self.policy_model.add(Dense(4, activation='softmax'))
+    def __init__(self, obs_dim, act_dim):
+
+        # Share information about action space with policy architecture
+        ac_kwargs = dict()
+        ac_kwargs['action_dim'] = act_dim
+
+        # Inputs to computation graph
+        self.x_ph = core.placeholder(obs_dim)
+        self.a_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
+
+        self.pi, self.p, self.p_pi, self.v, self.p_all = core.actor_critic(self.x_ph, self.a_ph, **ac_kwargs)
+
+        self.sess = tf.Session()
+        self.sess.run(tf.global_variables_initializer())
 
         self.direction_list = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
@@ -45,20 +49,23 @@ class policies(object):
 
         return state.getReward(), [route_paths]
 
+    def predict_probs(self, obs):
+        return self.sess.run(self.p_all, feed_dict={self.x_ph: obs})
+
     def randomRoute(self, state):
 
         route_paths = []
 
         while not state.isTerminal():
 
-            board = np.copy(state.board)
+            obs = np.copy(state.board_embedding())
             pin_idx = state.pairs_idx
 
-            path = self.randomDFS(board, state.action_node, state.finish[state.pairs_idx], pin_idx)
+            path = self.randomDFS(obs, state.action_node, state.finish[state.pairs_idx], pin_idx)
 
             if len(path)==1:
                 # print("failed to find a path to the target node")
-                return 1/(board.shape[0]*board.shape[1]), route_paths
+                return 1/(obs.shape[0]*obs.shape[1]), route_paths
             else:
                 route_paths.append(path)
                 path.pop(0)
@@ -68,8 +75,12 @@ class policies(object):
 
         return state.getReward(), route_paths
 
+    def randomDFS(self, obs, s, t, pin_idx):
 
-    def randomDFS(self, board, s, t, pin_idx):
+        if len(obs.shape)==3:
+            board = obs[:,:,0]
+        else:
+            board = obs[:,:,:,0]
 
         path_queue = [s]
         node = s
@@ -87,8 +98,8 @@ class policies(object):
                 # action = random.choice(actions)
                 bh = board.shape[0]
                 bw = board.shape[1]
-                board_tem = np.reshape(board, (1, bh, bw, 1))
-                action_dist = self.policy_model.predict(board_tem)[0]
+                obs_tem = np.reshape(obs, (1, bh, bw, 2))
+                action_dist = self.predict_probs(obs_tem)[0]
                 # print(action_dist)
                 action = self.get_action(actions, action_dist)
 

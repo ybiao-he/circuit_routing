@@ -12,30 +12,26 @@ class Buffer:
     for calculating the advantages of state-action pairs.
     """
 
-    def __init__(self, obs_dim, act_dim, select_act_dim, size, gamma=0.99, lam=0.95):
-        self.obs_buf = np.zeros(combined_shape(size, obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
-        self.adv_buf = np.zeros(size, dtype=np.float32)
-        self.rew_buf = np.zeros(size, dtype=np.float32)
-        self.ret_buf = np.zeros(size, dtype=np.float32)
-        self.val_buf = np.zeros(size, dtype=np.float32)
-        self.logp_buf = np.zeros(size, dtype=np.float32)
+    def __init__(self, gamma=0.99, lam=0.95):
+        self.obs_buf = []
+        self.act_buf = []
+        self.adv_buf = []
+        self.rew_buf = []
+        self.ret_buf = []
+        self.val_buf = []
+        self.logp_buf = []
         self.gamma, self.lam = gamma, lam
-        self.ptr, self.path_start_idx, self.max_size = 0, 0, size
+        self.ptr, self.path_start_idx = 0, 0
 
-        self.select_act_buf = np.zeros(combined_shape(size, select_act_dim), dtype=np.float32)
-
-    def store(self, obs, act, select_actor, rew, val, logp):
+    def store(self, obs, act, rew, val, logp):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
-        assert self.ptr < self.max_size     # buffer has to have room so you can store
-        self.obs_buf[self.ptr] = obs
-        self.act_buf[self.ptr] = act
-        self.select_act_buf[self.ptr] = select_actor
-        self.rew_buf[self.ptr] = rew
-        self.val_buf[self.ptr] = val
-        self.logp_buf[self.ptr] = logp
+        self.obs_buf.append(obs)
+        self.act_buf.append(act)
+        self.rew_buf.append(rew)
+        self.val_buf.append(val)
+        self.logp_buf.append(logp)
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -55,15 +51,15 @@ class Buffer:
         """
 
         path_slice = slice(self.path_start_idx, self.ptr)
-        rews = np.append(self.rew_buf[path_slice], last_val)
-        vals = np.append(self.val_buf[path_slice], last_val)
+        rews = np.array(self.rew_buf[path_slice]+[last_val])
+        vals = np.array(self.val_buf[path_slice]+[last_val])
         
         # the next two lines implement GAE-Lambda advantage calculation
         deltas = rews[:-1] + self.gamma * vals[1:] - vals[:-1]
-        self.adv_buf[path_slice] = core.discount_cumsum(deltas, self.gamma * self.lam)
+        self.adv_buf[path_slice] = discount_cumsum(deltas, self.gamma * self.lam)
         
         # the next line computes rewards-to-go, to be targets for the value function
-        self.ret_buf[path_slice] = core.discount_cumsum(rews, self.gamma)[:-1]
+        self.ret_buf[path_slice] = discount_cumsum(rews, self.gamma)[:-1]
         
         self.path_start_idx = self.ptr
 
@@ -73,13 +69,16 @@ class Buffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        assert self.ptr == self.max_size    # buffer has to be full before you can get
         self.ptr, self.path_start_idx = 0, 0
         # the next two lines implement the advantage normalization trick
-        adv_mean, adv_std = np.mean(self.adv_buf), np.std(self.adv_buf)
-        self.adv_buf = (self.adv_buf - adv_mean) / adv_std
-        return [self.obs_buf, self.act_buf, self.select_act_buf, self.adv_buf, 
-                self.ret_buf, self.logp_buf]
+        obs_buf = np.array(self.obs_buf)
+        act_buf = np.array(self.act_buf)
+        adv_buf = np.array(self.adv_buf)
+        ret_buf = np.array(self.ret_buf)
+        logp_buf = np.array(self.logp_buf)
+        adv_mean, adv_std = np.mean(adv_buf), np.std(adv_buf)
+        adv_buf = (adv_buf - adv_mean) / adv_std
+        return [obs_buf, act_buf, adv_buf, ret_buf, logp_buf]
 
 def combined_shape(length, shape=None):
     if shape is None:
@@ -105,14 +104,13 @@ def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
     # Data input is a 1-D vector of 900 features (30*30 pixels)
     # Reshape to match picture format [Height x Width x Channel]
     # Tensor input become 4-D: [Batch Size, Height, Width, Channel]
-    x = tf.reshape(x, shape=[-1, 30, 30, 1])
+    x = tf.reshape(x, shape=[-1, 40, 40, 2])
 
     for h in hidden_sizes[:-1]:
         # Convolution Layer with h filters and a kernel size of 5
         x = tf.layers.conv2d(x, h, 5, activation=activation)
         # Max Pooling (down-sampling) with strides of 2 and kernel size of 2
         x = tf.layers.max_pooling2d(x, 2, 2)
-
 
     # Flatten the data to a 1-D vector for the fully connected layer
     fc1 = tf.contrib.layers.flatten(x)
@@ -152,38 +150,35 @@ def discount_cumsum(x, discount):
     """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
-def prob_recal(p_all, select_actor):
-
-    select_p_all = p_all * select_actor
-
-    return select_p_all/tf.reshape(tf.reduce_sum(select_p_all, axis=1), (-1, 1))
-
 """
 Policies
 """
 
-def mlp_categorical_policy(x, a, select_actor, hidden_sizes, activation, output_activation, action_dim):
+def cnn_categorical_policy(x, a, hidden_sizes, activation, output_activation, action_dim):
+    
     act_dim = action_dim
-    logits = mlp(x, list(hidden_sizes)+[act_dim], activation, None)
-    p_all_tmp = tf.nn.softmax(logits)
-    p_all = prob_recal(p_all_tmp, select_actor)
-    pi = tf.squeeze(tf.random.categorical(tf.math.log(p_all), 1), axis=1) # this is the selected action based on logits distribution
+    logits = cnn(x, list(hidden_sizes)+[act_dim], activation, None)
+    p_all = tf.nn.softmax(logits)
+
+    # pi is the selected action based on p_all (prob for all actions)
+    pi = tf.squeeze(tf.random.categorical(tf.math.log(p_all), 1), axis=1)
+    # p is the prob for the given action a
     p = tf.reduce_sum(tf.one_hot(a, depth=act_dim) * p_all, axis=1)
+    # p_pi is the prob for the selected action pi
     p_pi = tf.reduce_sum(tf.one_hot(pi, depth=act_dim) * p_all, axis=1)
     return pi, p, p_pi, p_all
-
 
 """
 Actor-Critics
 """
-def mlp_actor_critic(x, a, select_actor, hidden_sizes=(128, 128), activation=tf.nn.relu,
+def actor_critic(x, a, hidden_sizes=(128, 128), activation=tf.nn.relu,
                      output_activation=None, policy=None, action_dim=None):
 
     # default policy builder depends on action space
-    policy = mlp_categorical_policy
+    policy = cnn_categorical_policy
 
     with tf.variable_scope('pi'):
-        pi, p, p_pi, p_all = policy(x, a, select_actor, hidden_sizes, activation, output_activation, action_dim)
+        pi, p, p_pi, p_all = policy(x, a, hidden_sizes, activation, output_activation, action_dim)
     with tf.variable_scope('v'):
-        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+        v = tf.squeeze(cnn(x, list(hidden_sizes)+[1], activation, None), axis=1)
     return pi, p, p_pi, v, p_all

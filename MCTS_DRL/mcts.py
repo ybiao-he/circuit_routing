@@ -36,7 +36,7 @@ class treeNode():
 
 class mcts():
     def __init__(self, timeLimit=None, iterationLimit=None, explorationConstant=1 / math.sqrt(2),
-                 rolloutPolicy=randomPolicy, rewardType="ave", nodeSelect="best"):
+                 Policy=randomPolicy, rewardType="ave", nodeSelect="best"):
         if timeLimit != None:
             if iterationLimit != None:
                 raise ValueError("Cannot have both a time limit and an iteration limit")
@@ -52,14 +52,19 @@ class mcts():
             self.searchLimit = iterationLimit
             self.limitType = 'iterations'
         self.explorationConstant = explorationConstant
-        self.rollout = rolloutPolicy
+
+        self.policy = Policy
+        self.rollout = self.policy.randomRoute
+
+        # self.RL_actor = self.policy.policy_model
+        # self.RL_critic = self.policy.value_model
 
         self.rewardType = rewardType
         self.nodeSelect = nodeSelect
 
         self.route_paths_saved = []
 
-        self.buf = core.Buffer(obs_dim=(40,40,2), act_dim=None, select_act_dim=4, size=1000)
+        self.buf = core.Buffer()
 
     def search(self, initialState):
         self.root = treeNode(initialState, None, self.rewardType)
@@ -71,6 +76,8 @@ class mcts():
         else:
             for i in range(self.searchLimit):
                 self.executeRoundByIters()
+            res = self.buf.get()
+            [print(r.shape) for r in res]
 
         # bestChild = self.getBestChildBasedonReward(self.root)
         # return self.getAction(self.root, bestChild), bestChild.totalReward
@@ -189,13 +196,15 @@ class mcts():
 
         cr_env = CREnv(board=self.root.state.board_backup)
 
+        num_iters = 0
+
         for vertex in routed_path:
             action = tuple(map(lambda i, j: i - j, vertex, cr_env.action_node))
             action_idx = cr_env.directions.index(action)
 
             embed_state, reward, done, info = cr_env.step(action_idx)
 
-            if self.buf.ptr<1000:
-                self.buf.store(embed_state, action_idx, np.array([0,0,0,1]), reward, 0, 0.5)
-
-        print(self.buf.obs_buf, self.buf.act_buf)
+            self.buf.store(embed_state, action_idx, reward, 0, 0.5)
+            num_iters += 1
+        self.buf.finish_path()
+        # print(num_iters)
