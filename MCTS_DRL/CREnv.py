@@ -17,7 +17,7 @@ class CREnv(object):
 
         self.directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        self.reset()
+        # self.reset()
 
     def reset(self):
 

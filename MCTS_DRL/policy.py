@@ -10,15 +10,20 @@ class policies(object):
 
     def __init__(self, obs_dim, act_dim):
 
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
+
         # Share information about action space with policy architecture
         ac_kwargs = dict()
-        ac_kwargs['action_dim'] = act_dim
-
+        ac_kwargs['action_dim'] = self.act_dim
+        
         # Inputs to computation graph
-        self.x_ph = core.placeholder(obs_dim)
+        self.x_ph = core.placeholder(self.obs_dim)
         self.a_ph = tf.placeholder(dtype=tf.int32, shape=(None,))
 
         self.pi, self.p, self.p_pi, self.v, self.p_all = core.actor_critic(self.x_ph, self.a_ph, **ac_kwargs)
+
+        self.ppo()
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
@@ -49,8 +54,23 @@ class policies(object):
 
         return state.getReward(), [route_paths]
 
+    def indices_to_one_hot(self, data, nb_classes):
+        """Convert an iterable of indices to one-hot encoded labels."""
+        targets = [0]*nb_classes
+        targets[data] = 1
+        return np.array(targets)
+
     def predict_probs(self, obs):
-        return self.sess.run(self.p_all, feed_dict={self.x_ph: obs})
+        new_shape = (1,) + obs.shape
+        return self.sess.run(self.p_all, feed_dict={self.x_ph: np.reshape(obs, new_shape)})
+
+    def get_prob_act(self, obs, act):
+        new_shape = (1,) + obs.shape
+        return self.sess.run(self.p, feed_dict={self.x_ph: np.reshape(obs, new_shape), self.a_ph: self.indices_to_one_hot(act, self.act_dim)})[0]
+
+    def predict_value(self, obs):
+        new_shape = (1,) + obs.shape
+        return self.sess.run(self.v, feed_dict={self.x_ph: np.reshape(obs, new_shape)})[0]
 
     def randomRoute(self, state):
 
@@ -96,10 +116,10 @@ class policies(object):
             if len(actions) != 0:
                 # randomly choose an action, revise it by possibilities
                 # action = random.choice(actions)
-                bh = board.shape[0]
-                bw = board.shape[1]
-                obs_tem = np.reshape(obs, (1, bh, bw, 2))
-                action_dist = self.predict_probs(obs_tem)[0]
+                # bh = board.shape[0]
+                # bw = board.shape[1]
+                # obs_tem = np.reshape(obs, (1, bh, bw, 2))
+                action_dist = self.predict_probs(obs)[0]
                 # print(action_dist)
                 action = self.get_action(actions, action_dist)
 
@@ -156,3 +176,52 @@ class policies(object):
         # print(act_idx_to_poss)
         ret_action = np.random.choice(list(act_idx_to_poss.keys()), p=list(act_idx_to_poss.values()))
         return self.direction_list[ret_action]
+
+    def ppo(self, clip_ratio=0.2, pi_lr=3e-4, vf_lr=1e-3):
+
+        adv_ph, ret_ph, p_old_ph = core.placeholders(None, None, None)
+
+        # Need all placeholders in *this* order later (to zip with data from buffer)
+        self.all_phs = [self.x_ph, self.a_ph, adv_ph, ret_ph, p_old_ph]
+
+        # PPO objectives
+        ratio = self.p / (p_old_ph + 1e-8)       # pi(a|s) / pi_old(a|s)
+        min_adv = tf.where(adv_ph>0, (1+clip_ratio)*adv_ph, (1-clip_ratio)*adv_ph)
+        self.pi_loss = -tf.reduce_mean(tf.minimum(ratio * adv_ph, min_adv))
+        self.v_loss = tf.reduce_mean((ret_ph - self.v)**2, name="v_loss")
+
+        # Info (useful to watch during learning)
+        self.approx_kl = tf.reduce_mean(tf.math.log(p_old_ph) - tf.math.log(self.p))      # a sample estimate for KL-divergence, easy to compute
+        # approx_ent = tf.reduce_mean(-logp)                  # a sample estimate for entropy, also easy to compute
+
+        # Optimizers
+        self.train_pi = tf.train.AdamOptimizer(learning_rate=pi_lr).minimize(self.pi_loss)
+
+        self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
+
+
+    def ppo_update(self, buffer, train_pi_iters=8, train_v_iters=8, target_kl=0.01):
+
+        inputs = {k:v for k,v in zip(self.all_phs, buffer.get())}
+        # print(inputs)
+
+        # pi_l_old, v_l_old, ent = sess.run([pi_loss, v_loss, approx_ent], feed_dict=inputs)
+        
+        for i in range(train_pi_iters):
+            _, kl, loss_value = self.sess.run([self.train_pi, self.approx_kl, self.pi_loss], feed_dict=inputs)
+            print(loss_value)
+            # kl = mpi_avg(kl)
+            print("kl values are:")
+            print(kl)
+            # # print(sess.run(pi_loss, feed_dict=inputs))
+            if kl > 1.5 * target_kl:
+                print('Early stopping at step %d due to reaching max kl.'%i)
+                break
+        # saver.save(sess, 'actor') # save actor model
+        for i in range(train_v_iters):
+            self.sess.run(self.train_v, feed_dict=inputs)
+            print(i)
+        # saver.save(sess, 'critic') # save critic model
+
+        pi_l_new, v_l_new, kl = self.sess.run([self.pi_loss, self.v_loss, self.approx_kl], feed_dict=inputs)
+        print(pi_l_new, v_l_new, kl)

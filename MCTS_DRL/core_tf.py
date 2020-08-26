@@ -13,6 +13,10 @@ class Buffer:
     """
 
     def __init__(self, gamma=0.99, lam=0.95):
+        self.gamma, self.lam = gamma, lam
+        self.reset()
+
+    def reset(self):
         self.obs_buf = []
         self.act_buf = []
         self.adv_buf = []
@@ -20,8 +24,7 @@ class Buffer:
         self.ret_buf = []
         self.val_buf = []
         self.logp_buf = []
-        self.gamma, self.lam = gamma, lam
-        self.ptr, self.path_start_idx = 0, 0
+        self.ptr, self.path_start_idx = 0, 0  
 
     def store(self, obs, act, rew, val, logp):
         """

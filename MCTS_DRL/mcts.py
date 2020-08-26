@@ -69,6 +69,10 @@ class mcts():
     def search(self, initialState):
         self.root = treeNode(initialState, None, self.rewardType)
 
+        from CREnv import CREnv
+
+        self.cr_env = CREnv(board=self.root.state.board_backup)
+
         if self.limitType == 'time':
             timeLimit = time.time() + self.timeLimit / 1000
             while time.time() < timeLimit:
@@ -76,6 +80,8 @@ class mcts():
         else:
             for i in range(self.searchLimit):
                 self.executeRoundByIters()
+                self.policy.ppo_update(self.buf)
+                self.buf.reset()
             res = self.buf.get()
             [print(r.shape) for r in res]
 
@@ -192,19 +198,28 @@ class mcts():
 
     def store_to_buf(self, routed_path):
 
-        from CREnv import CREnv
+        # from CREnv import CREnv
 
-        cr_env = CREnv(board=self.root.state.board_backup)
+        # cr_env = CREnv(board=self.root.state.board_backup)
 
+        pre_state = self.cr_env.reset()
+        
         num_iters = 0
 
         for vertex in routed_path:
-            action = tuple(map(lambda i, j: i - j, vertex, cr_env.action_node))
-            action_idx = cr_env.directions.index(action)
+            action = tuple(map(lambda i, j: i - j, vertex, self.cr_env.action_node))
+            action_idx = self.cr_env.directions.index(action)
 
-            embed_state, reward, done, info = cr_env.step(action_idx)
+            current_state, reward, done, info = self.cr_env.step(action_idx)
+            p = self.policy.get_prob_act(pre_state, action_idx)
+            value = self.policy.predict_value(pre_state)
+            print(self.policy.predict_probs(pre_state))
+            # print(logp, value)
 
-            self.buf.store(embed_state, action_idx, reward, 0, 0.5)
+            self.buf.store(pre_state, action_idx, reward, value, p)
+
+            pre_state = current_state
+
             num_iters += 1
         self.buf.finish_path()
         # print(num_iters)
