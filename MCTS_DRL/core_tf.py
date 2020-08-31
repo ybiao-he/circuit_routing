@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import scipy.signal
-from gym.spaces import Box, Discrete
+from tf_layers import conv
 
 EPS = 1e-8
 
@@ -109,9 +109,12 @@ def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
     # Tensor input become 4-D: [Batch Size, Height, Width, Channel]
     x = tf.reshape(x, shape=[-1, 40, 40, 2])
 
+    # scope = 1
     for h in hidden_sizes[:-1]:
         # Convolution Layer with h filters and a kernel size of 5
         x = tf.layers.conv2d(x, h, 5, activation=activation)
+        # x = activation(conv(x, "c"+str(scope), n_filters=h, filter_size=5, stride=2, init_scale=np.sqrt(2)))
+        # scope += 1
         # Max Pooling (down-sampling) with strides of 2 and kernel size of 2
         x = tf.layers.max_pooling2d(x, 2, 2)
 
@@ -119,7 +122,7 @@ def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
     fc1 = tf.contrib.layers.flatten(x)
 
     # Fully connected layer (in tf contrib folder for now)
-    fc1 = tf.layers.dense(fc1, 1024)
+    fc1 = tf.layers.dense(fc1, 512)
     # Apply Dropout (if is_training is False, dropout is not applied)
     fc1 = tf.layers.dropout(fc1, rate=dropout, training=is_training)
 
@@ -174,7 +177,7 @@ def cnn_categorical_policy(x, a, hidden_sizes, activation, output_activation, ac
 """
 Actor-Critics
 """
-def actor_critic(x, a, hidden_sizes=(128, 128), activation=tf.nn.relu,
+def actor_critic(x, a, hidden_sizes=(256, 256, 256), activation=tf.nn.relu,
                      output_activation=None, policy=None, action_dim=None):
 
     # default policy builder depends on action space

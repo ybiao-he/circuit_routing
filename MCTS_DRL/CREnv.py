@@ -10,7 +10,7 @@ class CREnv(object):
     """
     This is an env for circuit routing. 
     """
-    def __init__(self, board=np.genfromtxt("./test_board.csv", delimiter=',')):
+    def __init__(self, board):
         super(CREnv, self).__init__()
 
         self.board_backup = np.copy(board)

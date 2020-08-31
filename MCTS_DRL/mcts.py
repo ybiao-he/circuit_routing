@@ -82,8 +82,8 @@ class mcts():
                 self.executeRoundByIters()
                 self.policy.ppo_update(self.buf)
                 self.buf.reset()
-            res = self.buf.get()
-            [print(r.shape) for r in res]
+            # res = self.buf.get()
+            # [print(r.shape) for r in res]
 
         # bestChild = self.getBestChildBasedonReward(self.root)
         # return self.getAction(self.root, bestChild), bestChild.totalReward
