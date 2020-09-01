@@ -200,7 +200,7 @@ class policies(object):
         self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
 
 
-    def ppo_update(self, buffer, train_pi_iters=8, train_v_iters=8, target_kl=0.01):
+    def ppo_update(self, buffer, train_pi_iters=50, train_v_iters=50, target_kl=0.01):
 
         inputs = {k:v for k,v in zip(self.all_phs, buffer.get())}
         # print(inputs)

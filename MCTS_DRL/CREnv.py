@@ -48,13 +48,18 @@ class CREnv(object):
 
         self.board[self.finish[self.pairs_idx]] = self.max_value
 
-        board = self.board.reshape(40,40,1).astype(np.float32)
-        net_idx_mat = np.ones(board.shape)*self.max_value
-        one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
-        state = np.array(one_sample)
+        state = self.board_embedding()
 
         return state
 
+    def board_embedding(self):
+
+        board = self.board.reshape(40,40,1).astype(np.float32)
+        net_idx_mat = np.ones(board.shape)*self.max_value
+        one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
+        state = np.array(one_sample)/(self.max_value-1)
+
+        return state
 
     def getPossibleActions(self):
 
@@ -103,10 +108,7 @@ class CREnv(object):
 
         self.board[self.finish.get(self.pairs_idx)] = self.max_value
 
-        board = self.board.reshape(40,40,1).astype(np.float32)
-        net_idx_mat = np.ones(board.shape)*self.max_value
-        one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
-        state = np.array(one_sample)
+        state = self.board_embedding()
 
         # print(np.sum(state))
         self.path_length += 1

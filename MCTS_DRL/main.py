@@ -1,6 +1,6 @@
 import numpy as np
 
-from policy import policies
+from policy_tf import policies
 from mcts_env import circuitBoard
 from mcts import mcts
 import sys

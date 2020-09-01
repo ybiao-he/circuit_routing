@@ -213,6 +213,7 @@ class mcts():
             current_state, reward, done, info = self.cr_env.step(action_idx)
             p = self.policy.get_prob_act(pre_state, action_idx)
             value = self.policy.predict_value(pre_state)
+            print(np.sum(pre_state))
             print(self.policy.predict_probs(pre_state))
             # print(logp, value)
 

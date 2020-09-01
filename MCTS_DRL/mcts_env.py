@@ -46,7 +46,7 @@ class circuitBoard():
         board = self.board.reshape(40,40,1).astype(np.float32)
         net_idx_mat = np.ones(board.shape)*self.max_value
         one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
-        state_board = np.array(one_sample)
+        state_board = np.array(one_sample)/(self.max_value-1)
 
         return state_board
 

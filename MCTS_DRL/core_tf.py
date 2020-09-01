@@ -3,8 +3,6 @@ import tensorflow as tf
 import scipy.signal
 from tf_layers import conv
 
-EPS = 1e-8
-
 class Buffer:
     """
     A buffer for storing trajectories experienced by a agent interacting
