@@ -201,6 +201,9 @@ class mcts():
         # from CREnv import CREnv
 
         # cr_env = CREnv(board=self.root.state.board_backup)
+        from view import view
+
+        render = view()
 
         pre_state = self.cr_env.reset()
         
@@ -209,6 +212,8 @@ class mcts():
         for vertex in routed_path:
             action = tuple(map(lambda i, j: i - j, vertex, self.cr_env.action_node))
             action_idx = self.cr_env.directions.index(action)
+
+            render.display(self.cr_env.board)
 
             current_state, reward, done, info = self.cr_env.step(action_idx)
             p = self.policy.get_prob_act(pre_state, action_idx)
