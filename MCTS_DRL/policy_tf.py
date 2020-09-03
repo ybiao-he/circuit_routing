@@ -200,28 +200,52 @@ class policies(object):
         self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
 
 
-    def ppo_update(self, buffer, train_pi_iters=50, train_v_iters=50, target_kl=0.01):
+    def ppo_update(self, rl_buffer, train_pi_iters=50, train_v_iters=50, target_kl=0.05):
 
-        inputs = {k:v for k,v in zip(self.all_phs, buffer.get())}
+        buffer_data = rl_buffer.get()
+        # inputs = {k:v for k,v in zip(self.all_phs, buffer.get())}
         # print(inputs)
 
         # pi_l_old, v_l_old, ent = sess.run([pi_loss, v_loss, approx_ent], feed_dict=inputs)
-        
+        # train policy network
+        batch = []
         for i in range(train_pi_iters):
-            _, kl, loss_value = self.sess.run([self.train_pi, self.approx_kl, self.pi_loss], feed_dict=inputs)
-            print(loss_value)
-            # kl = mpi_avg(kl)
+            kl = 0
+            start_idx = 0
+            batch_size = 100
+            while start_idx<len(buffer_data[0]):
+                if start_idx+batch_size < len(buffer_data[0]):
+                    batch = [data[start_idx:start_idx+batch_size] for data in buffer_data]
+                else:
+                    batch = [data[start_idx:-1] for data in buffer_data]
+                start_idx += start_idx+batch_size
+
+                inputs = {k:v for k,v in zip(self.all_phs, batch)}
+                _, kl_tem, loss_value = self.sess.run([self.train_pi, self.approx_kl, self.pi_loss], feed_dict=inputs)
+                kl += kl_tem
+                # print(loss_value)
             print("kl values are:")
             print(kl)
             # # print(sess.run(pi_loss, feed_dict=inputs))
             if kl > 1.5 * target_kl:
                 print('Early stopping at step %d due to reaching max kl.'%i)
                 break
-        # saver.save(sess, 'actor') # save actor model
-        for i in range(train_v_iters):
-            self.sess.run(self.train_v, feed_dict=inputs)
-            print(i)
-        # saver.save(sess, 'critic') # save critic model
 
-        pi_l_new, v_l_new, kl = self.sess.run([self.pi_loss, self.v_loss, self.approx_kl], feed_dict=inputs)
-        print(pi_l_new, v_l_new, kl)
+        # train value network
+        for i in range(train_v_iters):
+            start_idx = 0
+            batch_size = 100
+            while start_idx<len(buffer_data[0]):
+                if start_idx+batch_size < len(buffer_data[0]):
+                    batch = [data[start_idx:start_idx+batch_size] for data in buffer_data]
+                else:
+                    batch = [data[start_idx:-1] for data in buffer_data]
+                start_idx += start_idx+batch_size
+
+                inputs = {k:v for k,v in zip(self.all_phs, batch)}
+                self.sess.run(self.train_v, feed_dict=inputs)
+            print(i)
+
+
+        # pi_l_new, v_l_new, kl = self.sess.run([self.pi_loss, self.v_loss, self.approx_kl], feed_dict=inputs)
+        # print(pi_l_new, v_l_new, kl)

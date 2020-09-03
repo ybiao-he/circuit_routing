@@ -36,7 +36,7 @@ class treeNode():
 
 class mcts():
     def __init__(self, timeLimit=None, iterationLimit=None, explorationConstant=1 / math.sqrt(2),
-                 Policy=randomPolicy, rewardType="ave", nodeSelect="best"):
+                 Policy=randomPolicy, rewardType="ave", nodeSelect="best", nRLTraj=10):
         if timeLimit != None:
             if iterationLimit != None:
                 raise ValueError("Cannot have both a time limit and an iteration limit")
@@ -66,6 +66,8 @@ class mcts():
 
         self.buf = core.Buffer()
 
+        self.num_RL_traj = nRLTraj
+
     def search(self, initialState):
         self.root = treeNode(initialState, None, self.rewardType)
 
@@ -79,15 +81,17 @@ class mcts():
                 self.executeRound()
         else:
             for i in range(self.searchLimit):
-                self.executeRoundByIters()
+                for _ in range(self.num_RL_traj):
+                    self.executeRoundByIters()
                 self.policy.ppo_update(self.buf)
                 self.buf.reset()
+
             # res = self.buf.get()
             # [print(r.shape) for r in res]
 
         # bestChild = self.getBestChildBasedonReward(self.root)
         # return self.getAction(self.root, bestChild), bestChild.totalReward
-        return self.route_paths_saved
+        return self.perform(initialState, 20)
 
     def executeRound(self):
         node = self.selectNode(self.root)
@@ -198,13 +202,6 @@ class mcts():
 
     def store_to_buf(self, routed_path):
 
-        # from CREnv import CREnv
-
-        # cr_env = CREnv(board=self.root.state.board_backup)
-        from view import view
-
-        render = view()
-
         pre_state = self.cr_env.reset()
         
         num_iters = 0
@@ -212,8 +209,6 @@ class mcts():
         for vertex in routed_path:
             action = tuple(map(lambda i, j: i - j, vertex, self.cr_env.action_node))
             action_idx = self.cr_env.directions.index(action)
-
-            render.display(self.cr_env.board)
 
             current_state, reward, done, info = self.cr_env.step(action_idx)
             p = self.policy.get_prob_act(pre_state, action_idx)
@@ -229,3 +224,30 @@ class mcts():
             num_iters += 1
         self.buf.finish_path()
         # print(num_iters)
+
+    def perform(self, initialState, epochs):
+
+        self.root = treeNode(initialState, None, self.rewardType)
+
+        for i in range(epochs):
+            self.executeRoundByIters()
+
+        from CREnv import CREnv
+
+        cr_env = CREnv(board=self.root.state.board_backup)
+
+        from view import view
+
+        render = view()
+
+        state = self.cr_env.reset()
+
+        for vertex in self.route_paths_saved:
+            action = tuple(map(lambda i, j: i - j, vertex, self.cr_env.action_node))
+            action_idx = self.cr_env.directions.index(action)
+
+            render.display(self.cr_env.board)
+
+            state, reward, done, info = self.cr_env.step(action_idx)
+
+        return self.route_paths_saved

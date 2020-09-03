@@ -70,13 +70,12 @@ class Buffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        self.ptr, self.path_start_idx = 0, 0
-        # the next two lines implement the advantage normalization trick
         obs_buf = np.array(self.obs_buf)
         act_buf = np.array(self.act_buf)
         adv_buf = np.array(self.adv_buf)
         ret_buf = np.array(self.ret_buf)
         logp_buf = np.array(self.logp_buf)
+        # the next two lines implement the advantage normalization trick
         adv_mean, adv_std = np.mean(adv_buf), np.std(adv_buf)
         adv_buf = (adv_buf - adv_mean) / adv_std
         return [obs_buf, act_buf, adv_buf, ret_buf, logp_buf]
