@@ -8,7 +8,7 @@ import tensorflow as tf
 
 class policies(object):
 
-    def __init__(self, obs_dim, act_dim):
+    def __init__(self, obs_dim, act_dim, rl_algm="vpg"):
 
         self.obs_dim = obs_dim
         self.act_dim = act_dim
@@ -23,7 +23,12 @@ class policies(object):
 
         self.pi, self.p, self.p_pi, self.v, self.p_all = core.actor_critic(self.x_ph, self.a_ph, **ac_kwargs)
 
-        self.ppo()
+        if rl_algm == "vpg":
+            self.vpg()
+        elif rl_algm == "ppo":
+            self.ppo()
+        else:
+            print("please select rl algorithm: vpg or ppo")
 
         self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
@@ -200,7 +205,33 @@ class policies(object):
         self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
 
 
-    def ppo_update(self, rl_buffer, train_pi_iters=50, train_v_iters=50, target_kl=0.05):
+    def vpg(self, clip_ratio=0.2, pi_lr=3e-4, vf_lr=1e-3):
+
+        adv_ph, ret_ph, p_old_ph = core.placeholders(None, None, None)
+
+        # Need all placeholders in *this* order later (to zip with data from buffer)
+        self.all_phs = [self.x_ph, self.a_ph, adv_ph, ret_ph, p_old_ph]
+
+        # VPG objectives
+        self.pi_loss = -tf.reduce_mean(tf.math.log(self.p) * adv_ph)
+        self.v_loss = tf.reduce_mean((ret_ph - self.v)**2)
+
+        # Info (useful to watch during learning)
+        self.approx_kl = tf.reduce_mean(tf.math.log(p_old_ph) - tf.math.log(self.p))      # a sample estimate for KL-divergence, easy to compute
+        # approx_ent = tf.reduce_mean(-logp)                  # a sample estimate for entropy, also easy to compute
+
+        # Optimizers
+        optimizer = tf.train.AdamOptimizer(learning_rate=pi_lr)
+        optimizer = tf.contrib.estimator.clip_gradients_by_norm(optimizer, 5)
+        self.train_pi = optimizer.minimize(self.pi_loss, tf.train.get_global_step())
+        # self.train_pi = tf.train.AdamOptimizer(learning_rate=pi_lr).minimize(self.pi_loss)
+
+        optimizer = tf.train.AdamOptimizer(learning_rate=vf_lr)
+        optimizer = tf.contrib.estimator.clip_gradients_by_norm(optimizer, 5)
+        self.train_v = optimizer.minimize(self.v_loss, tf.train.get_global_step())
+        # self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
+
+    def ac_update(self, rl_buffer, train_pi_iters=50, train_v_iters=50, target_kl=0.05):
 
         buffer_data = rl_buffer.get()
         # inputs = {k:v for k,v in zip(self.all_phs, buffer.get())}
@@ -226,7 +257,7 @@ class policies(object):
                 # print(loss_value)
             print("kl values are:")
             print(kl)
-            # # print(sess.run(pi_loss, feed_dict=inputs))
+
             if kl > 1.5 * target_kl:
                 print('Early stopping at step %d due to reaching max kl.'%i)
                 break

@@ -83,7 +83,7 @@ class mcts():
             for i in range(self.searchLimit):
                 for _ in range(self.num_RL_traj):
                     self.executeRoundByIters()
-                self.policy.ppo_update(self.buf)
+                self.policy.ac_update(self.buf)
                 self.buf.reset()
 
             # res = self.buf.get()
