@@ -19,7 +19,7 @@ class RunMCTS(object):
 
         self.readParas(para_file)
 
-        self.policy = policies(obs_dim=(40,40,2), act_dim=4, rl_algm="vpg")
+        self.policy = policies(obs_dim=(40,40,2), act_dim=4, rl_algm="ppo")
     
     def readParas(self, file_path):
         with open(file_path, 'r') as f:

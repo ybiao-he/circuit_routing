@@ -80,6 +80,9 @@ class Buffer:
         adv_buf = (adv_buf - adv_mean) / adv_std
         return [obs_buf, act_buf, adv_buf, ret_buf, logp_buf]
 
+    def get_length(self):
+        return len(self.obs_buf)
+
 def combined_shape(length, shape=None):
     if shape is None:
         return (length,)

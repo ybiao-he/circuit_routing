@@ -205,7 +205,7 @@ class policies(object):
         self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
 
 
-    def vpg(self, clip_ratio=0.2, pi_lr=3e-4, vf_lr=1e-3):
+    def vpg(self, pi_lr=3e-4, vf_lr=1e-3):
 
         adv_ph, ret_ph, p_old_ph = core.placeholders(None, None, None)
 
@@ -280,3 +280,5 @@ class policies(object):
 
         # pi_l_new, v_l_new, kl = self.sess.run([self.pi_loss, self.v_loss, self.approx_kl], feed_dict=inputs)
         # print(pi_l_new, v_l_new, kl)
+
+        # def save_model(self):

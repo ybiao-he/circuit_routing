@@ -5,6 +5,8 @@ from __future__ import division
 from copy import deepcopy
 from copy import copy
 
+from scipy.spatial import distance
+
 import numpy as np
 
 class circuitBoard():
@@ -20,6 +22,8 @@ class circuitBoard():
 
         self.path_length = 0
 
+        self.max_pair_idx = 2
+
         # parse the board and get the starts and ends
         self.start = {}
         self.finish = {}
@@ -30,6 +34,7 @@ class circuitBoard():
                         self.finish[-self.board[i,j]] = (i,j)
                     else:
                         self.start[self.board[i,j]] = (i,j)
+                    self.max_pair_idx = max(self.max_pair_idx, abs(self.board[i,j]))
                 self.board[i,j] = abs(self.board[i,j])
 
         self.max_value = np.amax(self.board)+1
@@ -94,5 +99,9 @@ class circuitBoard():
         if self.action_node is None:
             return 1/(self.path_length+1)
         elif len(self.getPossibleActions()) == 0:
-            return 1/(self.board.shape[0]*self.board.shape[1])
+            left_dist = distance.cityblock(self.action_node, self.finish[self.pairs_idx])
+            for i in range(self.pairs_idx+1, int(self.max_pair_idx+1)):
+                left_dist += distance.cityblock(self.start[i], self.finish[i])
+            # return left_dist*2.0
+            return 1/(left_dist*5.0+self.path_length)
         return 0

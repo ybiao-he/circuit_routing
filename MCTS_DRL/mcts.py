@@ -36,7 +36,7 @@ class treeNode():
 
 class mcts():
     def __init__(self, timeLimit=None, iterationLimit=None, explorationConstant=1 / math.sqrt(2),
-                 Policy=randomPolicy, rewardType="ave", nodeSelect="best", nRLTraj=10):
+                 Policy=randomPolicy, rewardType="ave", nodeSelect="best", nRLTraj=50):
         if timeLimit != None:
             if iterationLimit != None:
                 raise ValueError("Cannot have both a time limit and an iteration limit")
@@ -64,7 +64,7 @@ class mcts():
 
         self.route_paths_saved = []
 
-        self.buf = core.Buffer()
+        self.buf = core.Buffer(gamma=1.0, lam=1.0)
 
         self.num_RL_traj = nRLTraj
 
@@ -83,15 +83,17 @@ class mcts():
             for i in range(self.searchLimit):
                 for _ in range(self.num_RL_traj):
                     self.executeRoundByIters()
-                self.policy.ac_update(self.buf)
-                self.buf.reset()
+                if self.buf.get_length()>0:
+                    self.policy.ac_update(self.buf)
+                    self.buf.reset()
 
             # res = self.buf.get()
             # [print(r.shape) for r in res]
 
         # bestChild = self.getBestChildBasedonReward(self.root)
         # return self.getAction(self.root, bestChild), bestChild.totalReward
-        return self.perform(initialState, 20)
+        # return self.perform(initialState, 20)
+        return self.route_paths_saved
 
     def executeRound(self):
         node = self.selectNode(self.root)
@@ -112,10 +114,11 @@ class mcts():
             route_paths = reduce(lambda x,y: x+y, route_paths)
             route_paths = select_by_node + route_paths
 
-        self.store_to_buf(route_paths)
+        # self.store_to_buf(route_paths)
 
         if reward_total>self.root.totalReward:
             self.route_paths_saved = route_paths
+            self.store_to_buf(route_paths)
         # backpropagation
         self.backpropogate(node, reward)
 

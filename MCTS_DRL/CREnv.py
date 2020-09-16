@@ -142,7 +142,7 @@ class CREnv(object):
             # return -self.board.shape[0]*self.board.shape[1]/10
         # elif self.action_node is None:
         #     return -self.path_length/10
-        return 1.0
+        return -1.0
 
     def render(self, mode='console'):
         if mode != 'console':
