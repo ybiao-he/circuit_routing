@@ -6,6 +6,9 @@ import core_tf as core
 
 import tensorflow as tf
 
+import sys
+# np.set_printoptions(threshold=sys.maxsize)
+
 class policies(object):
 
     def __init__(self, obs_dim, act_dim, rl_algm="vpg"):
@@ -83,7 +86,7 @@ class policies(object):
 
         while not state.isTerminal():
 
-            obs = np.copy(state.board_embedding())
+            obs = np.copy(state.board)
             pin_idx = state.pairs_idx
 
             path = self.randomDFS(obs, state.action_node, state.finish[state.pairs_idx], pin_idx)
@@ -102,10 +105,13 @@ class policies(object):
 
     def randomDFS(self, obs, s, t, pin_idx):
 
-        if len(obs.shape)==3:
-            board = obs[:,:,0]
-        else:
-            board = obs[:,:,:,0]
+        # if len(obs.shape)==3:
+        #     board = obs[:,:,0]
+        # else:
+        #     board = obs[:,:,:,0]
+        # print(obs)
+        board = obs
+        # np.savetxt("board.csv", board, delimiter=',')
 
         path_queue = [s]
         node = s
@@ -124,7 +130,7 @@ class policies(object):
                 # bh = board.shape[0]
                 # bw = board.shape[1]
                 # obs_tem = np.reshape(obs, (1, bh, bw, 2))
-                action_dist = self.predict_probs(obs)[0]
+                action_dist = self.predict_probs(board)[0]
                 # print(action_dist)
                 action = self.get_action(actions, action_dist)
 
@@ -143,6 +149,7 @@ class policies(object):
                 # path_num -= 1
             else:
                 break
+        # print(path_queue)
         return path_queue
 
     def getPossibleActions(self, board, node, t):

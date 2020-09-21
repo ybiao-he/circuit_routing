@@ -107,7 +107,7 @@ def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
     # Data input is a 1-D vector of 900 features (30*30 pixels)
     # Reshape to match picture format [Height x Width x Channel]
     # Tensor input become 4-D: [Batch Size, Height, Width, Channel]
-    x = tf.reshape(x, shape=[-1, 40, 40, 2])
+    x = tf.reshape(x, shape=[-1, 40, 40, 1])
 
     # scope = 1
     for h in hidden_sizes[:-1]:

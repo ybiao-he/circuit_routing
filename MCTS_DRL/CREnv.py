@@ -48,9 +48,9 @@ class CREnv(object):
 
         self.board[self.finish[self.pairs_idx]] = self.max_value
 
-        state = self.board_embedding()
+        obs = self.board
 
-        return state
+        return obs
 
     def board_embedding(self):
 
@@ -93,14 +93,14 @@ class CREnv(object):
 
         action_tmp = self.directions[action]
 
-        # self.board[self.action_node] = 1
+        self.board[self.action_node] = 1
         
         self.action_node = (self.action_node[0]+action_tmp[0], self.action_node[1]+action_tmp[1])
 
         if self.board[self.action_node] == 0:
             self.board[self.action_node] = self.max_value
         elif self.action_node == self.finish[self.pairs_idx]:
-            # self.board[self.action_node] = 1
+            self.board[self.action_node] = 1
             self.pairs_idx += 1
             self.action_node = self.start.get(self.pairs_idx)
             if self.action_node is not None:
@@ -108,12 +108,12 @@ class CREnv(object):
 
         self.board[self.finish.get(self.pairs_idx)] = self.max_value
 
-        state = self.board_embedding()
+        obs = self.board
 
         # print(np.sum(state))
         self.path_length += 1
 
-        self.max_value += 1
+        # self.max_value += 1
 
         reward = self.getReward()
 
@@ -123,7 +123,7 @@ class CREnv(object):
 
         # state = np.array(self.board.reshape(40,40,1)).astype(np.float32)/(self.max_value-1.0)
         
-        return state, reward, done, info
+        return obs, reward, done, info
 
     def isTerminal(self):
 

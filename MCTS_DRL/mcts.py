@@ -105,6 +105,7 @@ class mcts():
         node, select_by_node = self.selectNode(self.root)
         # rollout
         reward, route_paths = self.rollout(node.state)
+
         # update the best paths
         reward_total = 1/(len(select_by_node)+1/reward)
         if len(route_paths)==0:
@@ -114,11 +115,11 @@ class mcts():
             route_paths = reduce(lambda x,y: x+y, route_paths)
             route_paths = select_by_node + route_paths
 
-        # self.store_to_buf(route_paths)
+            self.store_to_buf(route_paths)
 
         if reward_total>self.root.totalReward:
             self.route_paths_saved = route_paths
-            self.store_to_buf(route_paths)
+            # self.store_to_buf(route_paths)
         # backpropagation
         self.backpropogate(node, reward)
 

@@ -45,11 +45,13 @@ class circuitBoard():
         self.board[self.action_node] = self.max_value
 
         self.board[self.finish[self.pairs_idx]] = self.max_value
+        print(self.start, self.finish)
 
     def board_embedding(self):
 
         board = self.board.reshape(40,40,1).astype(np.float32)
         net_idx_mat = np.ones(board.shape)*self.max_value
+        # net_idx_mat = np.ones(board.shape)*self.pairs_idx
         one_sample = np.float32( np.concatenate((board, net_idx_mat), axis=2) )
         state_board = np.array(one_sample)/(self.max_value-1)
 
@@ -70,15 +72,17 @@ class circuitBoard():
     def takeAction(self, action):
 
         newState = deepcopy(self)
-        
+
+        newState.board[newState.action_node] = 1
+
         newState.action_node = (newState.action_node[0]+action[0], newState.action_node[1]+action[1])
 
         if newState.board[newState.action_node] == 0:
-            newState.board[newState.action_node] = newState.max_value+1
-            newState.max_value += 1
-        elif newState.action_node == newState.finish[newState.pairs_idx]:
             newState.board[newState.action_node] = newState.max_value
-            newState.max_value += 1
+            # newState.max_value += 1
+        elif newState.action_node == newState.finish[newState.pairs_idx]:
+            newState.board[newState.action_node] = 1
+            # newState.max_value += 1
             newState.pairs_idx += 1
             newState.action_node = newState.start.get(newState.pairs_idx)
             if newState.action_node is not None:
