@@ -23,7 +23,7 @@ class CREnv(object):
 
         self.board = np.copy(self.board_backup)
 
-        self.max_value = np.amax(self.board)+1
+        self.max_value = np.amax(self.board)*5
         self.pairs_idx = 2
 
         self.path_length = 0

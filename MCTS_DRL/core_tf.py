@@ -122,7 +122,7 @@ def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
     fc1 = tf.contrib.layers.flatten(x)
 
     # Fully connected layer (in tf contrib folder for now)
-    fc1 = tf.layers.dense(fc1, 512)
+    fc1 = tf.layers.dense(fc1, 128)
     # Apply Dropout (if is_training is False, dropout is not applied)
     fc1 = tf.layers.dropout(fc1, rate=dropout, training=is_training)
 
@@ -177,7 +177,7 @@ def cnn_categorical_policy(x, a, hidden_sizes, activation, output_activation, ac
 """
 Actor-Critics
 """
-def actor_critic(x, a, hidden_sizes=(256, 256, 256), activation=tf.nn.relu,
+def actor_critic(x, a, hidden_sizes=(128, 128, 128), activation=tf.nn.relu,
                      output_activation=None, policy=None, action_dim=None):
 
     # default policy builder depends on action space

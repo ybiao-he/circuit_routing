@@ -93,7 +93,7 @@ class policies(object):
 
             if len(path)==1:
                 # print("failed to find a path to the target node")
-                return 1/(obs.shape[0]*obs.shape[1]), route_paths
+                return state.getReward(fail=True), route_paths
             else:
                 route_paths.append(path)
                 path.pop(0)

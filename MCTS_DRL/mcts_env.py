@@ -37,7 +37,7 @@ class circuitBoard():
                     self.max_pair_idx = max(self.max_pair_idx, abs(self.board[i,j]))
                 self.board[i,j] = abs(self.board[i,j])
 
-        self.max_value = np.amax(self.board)+1
+        self.max_value = np.amax(self.board)*5
 
         # initialize the action node
         self.action_node = copy(self.start[self.pairs_idx])
@@ -45,7 +45,6 @@ class circuitBoard():
         self.board[self.action_node] = self.max_value
 
         self.board[self.finish[self.pairs_idx]] = self.max_value
-        print(self.start, self.finish)
 
     def board_embedding(self):
 
@@ -99,13 +98,16 @@ class circuitBoard():
 
         return False
 
-    def getReward(self):
-        if self.action_node is None:
-            return 1/(self.path_length+1)
-        elif len(self.getPossibleActions()) == 0:
+    def getReward(self, fail=False):
+
+        if fail or len(self.getPossibleActions()) == 0:
             left_dist = distance.cityblock(self.action_node, self.finish[self.pairs_idx])
             for i in range(self.pairs_idx+1, int(self.max_pair_idx+1)):
                 left_dist += distance.cityblock(self.start[i], self.finish[i])
             # return left_dist*2.0
             return 1/(left_dist*5.0+self.path_length)
+        
+        elif self.action_node is None:
+            return 1/(self.path_length+1)
+
         return 0

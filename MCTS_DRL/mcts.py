@@ -36,7 +36,7 @@ class treeNode():
 
 class mcts():
     def __init__(self, timeLimit=None, iterationLimit=None, explorationConstant=1 / math.sqrt(2),
-                 Policy=randomPolicy, rewardType="ave", nodeSelect="best", nRLTraj=50):
+                 Policy=randomPolicy, rewardType="ave", nodeSelect="best", nRLTraj=20):
         if timeLimit != None:
             if iterationLimit != None:
                 raise ValueError("Cannot have both a time limit and an iteration limit")
