@@ -2,8 +2,6 @@
 import numpy as np
 import random
 from copy import copy
-import sys
-sys.setrecursionlimit(10**6) 
 
 def cos_value(B, A, D):
     '''
@@ -33,29 +31,60 @@ def find_node(board, number):
     '''
     return np.asarray(np.where(board == number)).reshape(-1)
 
-def rollout(board, route_boards):
-    
+def rollout(board):
+    boards = [board]
+#     current_node = find_node(board)
+    paths = [[]]
+    final_paths = []
+    j = 0
+    while len(final_paths)<20:
+        boards_tem = []
+        paths_tem = []
+        for i in range(len(boards)):
+            b = boards[i]
+            p = paths[i]
+            bs_tem, ps_tem, path = take_actions(b,p)
+            if path is not None:
+                final_paths.append(path)
+            boards_tem += bs_tem
+            paths_tem += ps_tem
+        j += 1
+        print(j)
+        boards = boards_tem
+        paths = paths_tem
+    return final_paths
+
+def take_actions(board, path):
+    '''
+    return a list of 2d numpy array (board)
+    '''
     net_number = 2
+    boards_next = []
+    paths_next = []
     current_node = find_node(board, net_number)
     neighbors = find_neighbors(board, current_node)
     
-    destination = find_node(board, -net_number)
-    if tuple(destination) in neighbors:
-        route_boards.append(board)
-        print("find one!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-        return 1
-    elif len(neighbors)==0:
-        return 0
-    probs = calculate_probs(neighbors, current_node, destination)
-    # print(probs)
+    if len(neighbors)==0:
+        return [], [], None
     
+    destination = find_node(board, -net_number)
+    probs = calculate_probs(neighbors, current_node, destination)
+    
+    if tuple(destination) in neighbors:
+        return boards_next, paths_next, path
+        
     for neighbor in neighbors:
         prob = probs[neighbor]
         if random.random()<=prob:
             board_next = copy(board)
+            path_next = copy(path)
             board_next[neighbor] = net_number
             board_next[tuple(current_node)] = 1
-            rollout(board_next, route_boards)
+            path_next.append(neighbor)
+            boards_next.append(board_next)
+            paths_next.append(path_next)
+            
+    return boards_next, paths_next, None
 
 def find_neighbors(board, current_node):
     '''
@@ -79,17 +108,13 @@ def calculate_probs(neighbors, current_node, destination):
     scores = []
     probs = dict()
     for neighbor in neighbors:
-        scores.append(Score2(np.asarray(neighbor), current_node, destination))
+        scores.append(Score3(np.asarray(neighbor), current_node, destination))
         
     max_score = max(scores)
     for neighbor in neighbors:
-        p = Score2(np.asarray(neighbor), current_node, destination)/max_score
+        p = Score3(np.asarray(neighbor), current_node, destination)/max_score
         probs[neighbor] = p
     return probs
 
 board = np.loadtxt("sim_board.csv", delimiter=',')
-route_boards = []
-rollout(board, route_boards)
-
-print(len(route_boards))
-print(route_boards[0])
+routes = rollout(board)
