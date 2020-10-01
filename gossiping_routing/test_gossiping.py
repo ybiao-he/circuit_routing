@@ -22,7 +22,7 @@ def Score2(B,A,D):
     return 1 + cos_value(B,A,D)
 
 def Score3(B,A,D):
-    e = 0.9
+    e = 0.3
     return (1-e)/(1-e*cos_value(B,A,D))
 
 def find_node(board, number):
@@ -32,11 +32,10 @@ def find_node(board, number):
     return np.asarray(np.where(board == number)).reshape(-1)
 
 def rollout(board):
-    boards = [board]
+    boards = np.array([board])
 #     current_node = find_node(board)
     paths = [[]]
     final_paths = []
-    j = 0
     while len(final_paths)<20:
         boards_tem = []
         paths_tem = []
@@ -48,10 +47,13 @@ def rollout(board):
                 final_paths.append(path)
             boards_tem += bs_tem
             paths_tem += ps_tem
-        j += 1
-        print(j)
-        boards = boards_tem
-        paths = paths_tem
+        if len(boards_tem)>200:
+            random_index = random.sample(range(1, len(boards_tem)), 200)
+            boards = np.array(boards_tem)[random_index]
+            paths = [paths_tem[i] for i in random_index]
+        else:
+            boards = np.array(boards_tem)
+            paths = paths_tem
     return final_paths
 
 def take_actions(board, path):
