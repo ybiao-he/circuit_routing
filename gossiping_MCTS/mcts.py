@@ -54,16 +54,20 @@ class mcts():
         self.policy = Policy
         self.rollout = self.policy.rollout
 
-        # self.RL_actor = self.policy.policy_model
-        # self.RL_critic = self.policy.value_model
-
         self.rewardType = rewardType
         self.nodeSelect = nodeSelect
 
         self.route_paths_saved = []
 
+        if not os.path.exists('improved_paths'):
+            os.makedirs('improved_paths')
+        self.save_board_folder = "./improved_paths"
+        self.save_iter_idices = []
+
     def search(self, initialState):
         self.root = treeNode(initialState, None, self.rewardType)
+
+        self.save_board_idx = 0
 
         if self.limitType == 'time':
             timeLimit = time.time() + self.timeLimit / 1000
@@ -71,15 +75,10 @@ class mcts():
                 self.executeRound()
         else:
             for i in range(self.searchLimit):
-                self.executeRoundByIters()
+                self.executeRoundByIters(i)
+            save_idices_path = os.path.join(self.save_board_folder, "saved_iters_idices.csv")
+            np.savetxt(save_idices_path, np.array(self.save_iter_idices), delimiter=',')
 
-
-            # res = self.buf.get()
-            # [print(r.shape) for r in res]
-
-        # bestChild = self.getBestChildBasedonReward(self.root)
-        # return self.getAction(self.root, bestChild), bestChild.totalReward
-        # return self.perform(initialState, 20)
         return self.route_paths_saved
 
     def executeRound(self):
@@ -87,7 +86,7 @@ class mcts():
         reward, _ = self.rollout(node.state)
         self.backpropogate(node, reward)
 
-    def executeRoundByIters(self):
+    def executeRoundByIters(self, i):
         # selection and expansion
         node, select_by_node = self.selectNode(self.root)
         # rollout
@@ -104,7 +103,9 @@ class mcts():
 
         if reward_total>self.root.totalReward:
             self.route_paths_saved = route_paths
-            # self.store_to_buf(route_paths)
+            self.write_to_file(route_paths)
+            self.save_iter_idices.append(i)
+            self.save_board_idx += 1
         # backpropagation
         self.backpropogate(node, reward)
 
@@ -169,22 +170,17 @@ class mcts():
                 bestNodes.append(child)
         return random.choice(bestNodes)
 
-    # def getBestChildBasedonReward(self, node):
 
-    #     bestValue = float("-inf")
-    #     bestNodes = []
-    #     for child in node.children.values():
+    def write_to_file(self, route_paths):
 
-    #         nodeValue = child.totalReward
+        target_pins = self.root.state.finish.values()
 
-    #         if nodeValue > bestValue:
-    #             bestValue = nodeValue
-    #             bestNodes = [child]
-    #         elif nodeValue == bestValue:
-    #             bestNodes.append(child)
-    #     return random.choice(bestNodes)
+        save_path = os.path.join(self.save_board_folder, "improved_board"+str(self.save_board_idx)+".csv")
+        paths_tmp = []
 
-    def getAction(self, root, bestChild):
-        for action, node in root.children.items():
-            if node is bestChild:
-                return action
+        for vertex in route_paths:
+            paths_tmp.append(vertex)
+            if vertex in target_pins:
+                paths_tmp.append([-1, -1])
+
+        np.savetxt(save_path, np.array(paths_tmp), delimiter=',')

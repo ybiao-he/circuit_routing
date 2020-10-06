@@ -32,6 +32,10 @@ def find_node(board, number):
     return np.asarray(np.where(board == number)).reshape(-1)
 
 def connect(board, net_number, e):
+
+    breadth_limit = 100
+    final_paths_len = 2
+
     boards = np.array([copy(board)])
 #     current_node = find_node(board)
     paths = [[]]
@@ -49,15 +53,15 @@ def connect(board, net_number, e):
                 final_paths.append(path)
             boards_tem += bs_tem
             paths_tem += ps_tem
-        if len(boards_tem)>200:
-            random_index = random.sample(range(1, len(boards_tem)), 200)
+        if len(boards_tem)>breadth_limit:
+            random_index = random.sample(range(1, len(boards_tem)), breadth_limit)
             boards = np.array(boards_tem)[random_index]
             paths = [paths_tem[i] for i in random_index]
         else:
             boards = np.array(boards_tem)
             paths = paths_tem
 
-        if len(final_paths)>=2:
+        if len(final_paths)>=final_paths_len:
             break
 
     return final_paths
