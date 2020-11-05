@@ -3,13 +3,20 @@ import random
 import core as core
 import tensorflow as tf
 
+import joblib
+import os.path as osp
+import shutil
+
 class policy(object):
 
     def __init__(self, env, rl_algm="vpg"):
 
+
         self.obs_dim = env.observation_space.shape
         self.act_dim = env.action_space.n
         
+        self.sess = tf.Session()
+
         # Share information about action space with policy architecture
         ac_kwargs = dict()
         ac_kwargs['action_space'] = env.action_space
@@ -27,8 +34,8 @@ class policy(object):
         else:
             print("please select rl algorithm: vpg or ppo")
 
-        self.sess = tf.Session()
         self.sess.run(tf.global_variables_initializer())
+
 
     def predict_probs(self, obs):
         new_shape = (1,) + obs.shape
@@ -67,9 +74,9 @@ class policy(object):
         # approx_ent = tf.reduce_mean(-logp)                  # a sample estimate for entropy, also easy to compute
 
         # Optimizers
-        self.train_pi = tf.train.AdamOptimizer(learning_rate=pi_lr).minimize(self.pi_loss)
+        self.train_pi = tf.train.AdamOptimizer(learning_rate=pi_lr, name='NewAdam_pi').minimize(self.pi_loss)
 
-        self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr).minimize(self.v_loss)
+        self.train_v = tf.train.AdamOptimizer(learning_rate=vf_lr, name='NewAdam_v').minimize(self.v_loss)
 
 
     def vpg(self, pi_lr=3e-4, vf_lr=1e-3):
@@ -157,5 +164,55 @@ class policy(object):
             # print(i)
 
         return loss_values, kls
+
+    def tf_simple_save(self):
+        """
+        Uses simple_save to save a trained model, plus info to make it easy
+        to associated tensors to variables after restore. 
+        """
+        inputs={"x_ph": self.x_ph, "a_ph": self.a_ph}
+        outputs={"pi": self.pi, "logp": self.logp, "logp_pi": self.logp_pi, "v": self.v, "logp_all": self.logp_all}
+
+        self.tf_saver_elements = dict(session=self.sess, inputs=inputs, outputs=outputs)
+        self.tf_saver_info = {'inputs': {k:v.name for k,v in inputs.items()},
+                              'outputs': {k:v.name for k,v in outputs.items()}}
+
+        fpath = 'tf1_save'
+        fpath = osp.join('./', fpath)
+
+        if osp.exists(fpath):
+            # simple_save refuses to be useful if fpath already exists,
+            # so just delete fpath if it's there.
+            shutil.rmtree(fpath)
+        tf.saved_model.simple_save(export_dir=fpath, **self.tf_saver_elements)
+        joblib.dump(self.tf_saver_info, osp.join(fpath, 'model_info.pkl'))
+
+    # def load_tf_graph(self, fpath):
+    #     """
+    #     Loads graphs saved by Logger.
+
+    #     Will output a dictionary whose keys and values are from the 'inputs' 
+    #     and 'outputs' dict you specified with logger.setup_tf_saver().
+
+    #     Args:
+    #         sess: A Tensorflow session.
+    #         fpath: Filepath to save directory.
+
+    #     Returns:
+    #         A dictionary mapping from keys to tensors in the computation graph
+    #         loaded from ``fpath``. 
+    #     """
+    #     tf.saved_model.loader.load(
+    #                 self.sess,
+    #                 [tf.saved_model.tag_constants.SERVING],
+    #                 fpath
+    #             )
+    #     model_info = joblib.load(osp.join(fpath, 'model_info.pkl'))
+    #     graph = tf.get_default_graph()
+    #     model = dict()
+    #     model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['inputs'].items()})
+    #     model.update({k: graph.get_tensor_by_name(v) for k,v in model_info['outputs'].items()})
+
+    #     return model
 
 
