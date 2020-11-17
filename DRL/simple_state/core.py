@@ -74,12 +74,12 @@ class Buffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        obs_buf = np.array(self.obs_buf)
-        act_buf = np.array(self.act_buf)
-        adv_buf = np.array(self.adv_buf)
-        ret_buf = np.array(self.ret_buf)
-        logp_buf = np.array(self.logp_buf)
-        p_all_buf = np.array(self.p_all_buf)
+        obs_buf = np.array(self.obs_buf, dtype='float32')
+        act_buf = np.array(self.act_buf, dtype='float32')
+        adv_buf = np.array(self.adv_buf, dtype='float32')
+        ret_buf = np.array(self.ret_buf, dtype='float32')
+        logp_buf = np.array(self.logp_buf, dtype='float32')
+        p_all_buf = np.array(self.p_all_buf, dtype='float32')
         # the next two lines implement the advantage normalization trick
         adv_mean, adv_std = np.mean(adv_buf), np.std(adv_buf)
         adv_buf = (adv_buf - adv_mean) / adv_std
@@ -198,10 +198,10 @@ def actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh,
 
     policy = categorical_policy
 
-    # with tf.variable_scope('pi'):
-    pi, logp, logp_pi, logp_all = policy(x, a, hidden_sizes, activation, output_activation, action_space)
-    # with tf.variable_scope('v'):
-    v = tf.squeeze(cnn(x, list(hidden_sizes)+[1], activation, None), axis=1)
+    with tf.variable_scope('pi'):
+        pi, logp, logp_pi, logp_all = policy(x, a, hidden_sizes, activation, output_activation, action_space)
+    with tf.variable_scope('v'):
+        v = tf.squeeze(cnn(x, list(hidden_sizes)+[1], activation, None), axis=1)
     return pi, logp, logp_pi, v, logp_all
 
 """
@@ -227,5 +227,5 @@ def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh,
     with tf.variable_scope('pi'):
         pi, logp, logp_pi, logp_all = policy(x, a, hidden_sizes, activation, output_activation, action_space)
     with tf.variable_scope('v'):
-        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1, name='value')
     return pi, logp, logp_pi, v, logp_all

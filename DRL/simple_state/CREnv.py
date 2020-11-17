@@ -35,7 +35,8 @@ class CREnv(gym.Env):
         self.head_value = 20
         self.pairs_idx = 2
 
-        self.max_pair = int(np.amax(self.board))
+        # self.max_pair = int(np.amax(self.board))
+        self.max_pair = 2
 
         self.path_length = 0
 
@@ -120,7 +121,7 @@ class CREnv(gym.Env):
         #     return -left_dist*10-self.path_length
         if self.board[self.action_node] > self.head_value:
             left_dist = distance.cityblock(self.action_node, self.finish[self.pairs_idx])
-            print(self.pairs_idx, self.max_pair)
+            # print(self.pairs_idx, self.max_pair)
             for i in range(self.pairs_idx+1, self.max_pair):
                 left_dist += distance.cityblock(self.start[i], self.finish[i])
             return -left_dist*10-self.path_length
