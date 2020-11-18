@@ -36,8 +36,8 @@ def test_policy(env, policy):
 
 if __name__ == '__main__':
 
-    epochs = 10
-    local_steps_per_epoch = 20
+    epochs = 100
+    local_steps_per_epoch = 10
 
     env = CREnv()
 
@@ -55,17 +55,17 @@ if __name__ == '__main__':
         for t in range(local_steps_per_epoch):
             a = rl_policy.get_act(o)
             v_t = rl_policy.predict_value(o)[0][0]
-            logp_t = rl_policy.get_prob_act(o, a)
+            p_t = rl_policy.get_prob_act(o, a)
 
-            action_logps = rl_policy.predict_probs(o)
-            print(logp_t, v_t)
+            action_ps = rl_policy.predict_probs(o)
+            print(action_ps, v_t)
 
             o2, r, d, _ = env.step(a)
             ep_ret += r
             ep_len += 1
 
             # save and log
-            buf.store(o, a, r, v_t, logp_t, 0)
+            buf.store(o, a, r, v_t, p_t, 0)
 
             # Update obs (critical!)
             o = o2
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         rl_policy.update(buf)
         buf.reset()
 
-    # # rl_policy.tf_train_save()
-    
+    # rl_policy.tf_train_save()
+    print(saved_ep_ret)
     # np.savetxt("ave_rew.csv", np.array(saved_ep_ret), delimiter=',')
 

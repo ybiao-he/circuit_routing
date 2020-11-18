@@ -20,12 +20,29 @@ class PPOLoss(keras.losses.Loss):
         # y_true should contain many types of data: a, adv, p_old
         a = tf.dtypes.cast(y_true[0], tf.int32)
         adv = y_true[1]
-        logp_old = y_true[2]
-        logp = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim, dtype=tf.float32) * y_pred, axis=1)
-        ratio = tf.math.exp(logp - logp_old)          # pi(a|s) / pi_old(a|s)
+        p_old = y_true[2]
+        p = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim, dtype=tf.float32) * y_pred, axis=1)
+        ratio = p / p_old          # pi(a|s) / pi_old(a|s)
         min_adv = tf.where(adv>0, (1+self.clip_ratio)*adv, (1-self.clip_ratio)*adv)
         pi_loss = -tf.math.reduce_mean(tf.minimum(ratio * adv, min_adv))
         return pi_loss
+
+# class VPGLoss(keras.losses.Loss):
+#     def __init__(self, act_dim=4, name="vpg_loss"):
+#         super().__init__(name=name)
+#         self.act_dim = act_dim
+
+#     def call(self, y_true, y_pred):
+#         # y_true should contain many types of data: a, adv, p_old
+#         a = tf.dtypes.cast(y_true[0], tf.int32)
+#         adv = y_true[1]
+#         logp_old = y_true[2]
+#         logp = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim, dtype=tf.float32) * tf.math.log(y_pred), axis=1)
+#         ratio = tf.math.exp(logp - logp_old)          # pi(a|s) / pi_old(a|s)
+#         min_adv = tf.where(adv>0, (1+self.clip_ratio)*adv, (1-self.clip_ratio)*adv)
+#         pi_loss = -tf.math.reduce_mean(tf.minimum(ratio * adv, min_adv))
+#         return pi_loss
+
 
 class policy(object):
 
@@ -50,18 +67,18 @@ class policy(object):
             print("please select rl algorithm: vpg or ppo")
 
 
-    def actor_critic(self, hidden_sizes=(64,64), activation=tf.tanh, action_space=None):
+    def actor_critic(self, hidden_sizes=(64,64), activation='tanh', action_space=None):
 
         act_dim = action_space.n
-        p_model = self.mlp(list(hidden_sizes)+[act_dim], activation, None)
-        p_model.layers[-1].activation = keras.activations.get('softmax')
+        p_model = self.mlp(list(hidden_sizes)+[act_dim], activation, 'softmax')
+        # p_model.layers[-1].activation = keras.activations.get('softmax')
 
         v_model = self.mlp(list(hidden_sizes)+[1], activation, None)
 
         return p_model, v_model
 
 
-    def mlp(self, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
+    def mlp(self, hidden_sizes=(32,), activation='tanh', output_activation=None):
 
         inputs = tf.keras.Input(shape=(4,))
         x = tf.keras.layers.Dense(hidden_sizes[0], activation=activation)(inputs)
@@ -90,10 +107,10 @@ class policy(object):
         return np.random.choice(self.act_dim, p=np.squeeze(action_probs))
 
 
-    def ppo(self, clip_ratio=0.2):
+    def ppo(self, clip_ratio=0.2, pi_lr=3e-4, vf_lr=1e-3):
 
-        self.p_model.compile(optimizer=keras.optimizers.Adam(), loss=PPOLoss(clip_ratio=clip_ratio))
-        self.v_model.compile(optimizer=keras.optimizers.Adam(), loss=keras.losses.MeanSquaredError())
+        self.p_model.compile(optimizer=keras.optimizers.Adam(learning_rate=pi_lr), loss=PPOLoss(clip_ratio=clip_ratio))
+        self.v_model.compile(optimizer=keras.optimizers.Adam(learning_rate=vf_lr), loss=keras.losses.MeanSquaredError())
 
         self.p_model.summary()
 
@@ -103,7 +120,17 @@ class policy(object):
         buffer_data = rl_buffer.get()
 
         X = buffer_data[0]
-        y_p = [buffer_data[1], buffer_data[2], buffer_data[4]]
+        y_p = [buffer_data[1], buffer_data[2], buffer_data[4]] # action, adv, old_logp
         y_v = buffer_data[3]
-        self.p_model.fit(X, y_p, epochs=1)
-        self.v_model.fit(X, y_v, epochs=1)
+
+
+        for i in range(train_pi_iters):
+            self.p_model.fit(X, y_p, epochs=1)
+            one_hot_act = np.eye(self.act_dim)[y_p[0].astype('int64')]
+            approx_kl = np.mean(np.log(np.sum(self.p_model.predict(X)*one_hot_act, axis=1))-np.log(y_p[2]))
+            print(approx_kl)
+            if approx_kl>1.5*target_kl:
+                print('Early stopping at step %d due to reaching max kl.'%i)
+                break
+
+        self.v_model.fit(X, y_v, epochs=train_v_iters, verbose=0)
