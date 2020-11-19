@@ -36,8 +36,8 @@ def test_policy(env, policy):
 
 if __name__ == '__main__':
 
-    epochs = 100
-    local_steps_per_epoch = 10
+    epochs = 10
+    local_steps_per_epoch = 1000
 
     env = CREnv()
 
@@ -58,7 +58,6 @@ if __name__ == '__main__':
             p_t = rl_policy.get_prob_act(o, a)
 
             action_ps = rl_policy.predict_probs(o)
-            print(action_ps, v_t)
 
             o2, r, d, _ = env.step(a)
             ep_ret += r
@@ -72,6 +71,7 @@ if __name__ == '__main__':
 
             terminal = d
             if terminal or (t==local_steps_per_epoch-1):
+                print(p_t, a, v_t)
                 if not(terminal):
                     print('Warning: trajectory cut off by epoch at %d steps.'%ep_len)
                 # if trajectory didn't reach terminal state, bootstrap value target

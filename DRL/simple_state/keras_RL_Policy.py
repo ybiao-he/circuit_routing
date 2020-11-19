@@ -21,27 +21,24 @@ class PPOLoss(keras.losses.Loss):
         a = tf.dtypes.cast(y_true[0], tf.int32)
         adv = y_true[1]
         p_old = y_true[2]
-        p = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim, dtype=tf.float32) * y_pred, axis=1)
-        ratio = p / p_old          # pi(a|s) / pi_old(a|s)
+        p = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim) * y_pred, axis=1)
+        ratio = p / (p_old+1e-10)          # pi(a|s) / pi_old(a|s)
         min_adv = tf.where(adv>0, (1+self.clip_ratio)*adv, (1-self.clip_ratio)*adv)
         pi_loss = -tf.math.reduce_mean(tf.minimum(ratio * adv, min_adv))
         return pi_loss
 
-# class VPGLoss(keras.losses.Loss):
-#     def __init__(self, act_dim=4, name="vpg_loss"):
-#         super().__init__(name=name)
-#         self.act_dim = act_dim
+class VPGLoss(keras.losses.Loss):
+    def __init__(self, act_dim=4, name="vpg_loss"):
+        super().__init__(name=name)
+        self.act_dim = act_dim
 
-#     def call(self, y_true, y_pred):
-#         # y_true should contain many types of data: a, adv, p_old
-#         a = tf.dtypes.cast(y_true[0], tf.int32)
-#         adv = y_true[1]
-#         logp_old = y_true[2]
-#         logp = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim, dtype=tf.float32) * tf.math.log(y_pred), axis=1)
-#         ratio = tf.math.exp(logp - logp_old)          # pi(a|s) / pi_old(a|s)
-#         min_adv = tf.where(adv>0, (1+self.clip_ratio)*adv, (1-self.clip_ratio)*adv)
-#         pi_loss = -tf.math.reduce_mean(tf.minimum(ratio * adv, min_adv))
-#         return pi_loss
+    def call(self, y_true, y_pred):
+        # y_true should contain many types of data: a, adv, p_old
+        a = tf.dtypes.cast(y_true[0], tf.int32)
+        adv = y_true[1]
+        p = tf.math.reduce_sum(tf.one_hot(a, depth=self.act_dim) * y_pred, axis=1)
+        pi_loss = -tf.reduce_mean(p * adv)
+        return pi_loss
 
 
 class policy(object):
@@ -81,10 +78,13 @@ class policy(object):
     def mlp(self, hidden_sizes=(32,), activation='tanh', output_activation=None):
 
         inputs = tf.keras.Input(shape=(4,))
-        x = tf.keras.layers.Dense(hidden_sizes[0], activation=activation)(inputs)
+        x = tf.keras.layers.Dense(hidden_sizes[0], activation=activation, kernel_initializer='random_normal',
+                                bias_initializer='zeros')(inputs)
         for h in hidden_sizes[1:-1]:
-            x = tf.keras.layers.Dense(h, activation=activation)(x)
-        outputs = tf.keras.layers.Dense(hidden_sizes[-1], activation=output_activation)(x)
+            x = tf.keras.layers.Dense(h, activation=activation, kernel_initializer='random_normal',
+                                    bias_initializer='zeros')(x)
+        outputs = tf.keras.layers.Dense(hidden_sizes[-1], activation=output_activation, kernel_initializer='random_normal',
+                                    bias_initializer='zeros')(x)
         model = tf.keras.Model(inputs=inputs, outputs=outputs)
         return model
 
@@ -106,13 +106,19 @@ class policy(object):
         action_probs = self.p_model.predict(np.reshape(obs, new_shape))
         return np.random.choice(self.act_dim, p=np.squeeze(action_probs))
 
-
     def ppo(self, clip_ratio=0.2, pi_lr=3e-4, vf_lr=1e-3):
 
         self.p_model.compile(optimizer=keras.optimizers.Adam(learning_rate=pi_lr), loss=PPOLoss(clip_ratio=clip_ratio))
         self.v_model.compile(optimizer=keras.optimizers.Adam(learning_rate=vf_lr), loss=keras.losses.MeanSquaredError())
 
-        self.p_model.summary()
+        self.v_model.summary()
+
+    def vpg(self, pi_lr=3e-4, vf_lr=1e-3):
+
+        self.p_model.compile(optimizer=keras.optimizers.Adam(learning_rate=pi_lr), loss=VPGLoss())
+        self.v_model.compile(optimizer=keras.optimizers.Adam(learning_rate=vf_lr), loss=keras.losses.MeanSquaredError())
+
+        self.v_model.summary()
 
     def update(self, rl_buffer, train_pi_iters=50, train_v_iters=50, target_kl=0.01):
 
@@ -123,14 +129,18 @@ class policy(object):
         y_p = [buffer_data[1], buffer_data[2], buffer_data[4]] # action, adv, old_logp
         y_v = buffer_data[3]
 
-
         for i in range(train_pi_iters):
             self.p_model.fit(X, y_p, epochs=1)
+            # for j in range(1,4):
+            #     print(self.p_model.layers[j].get_weights())
+            print(self.p_model.layers[-1].get_weights())
             one_hot_act = np.eye(self.act_dim)[y_p[0].astype('int64')]
             approx_kl = np.mean(np.log(np.sum(self.p_model.predict(X)*one_hot_act, axis=1))-np.log(y_p[2]))
             print(approx_kl)
             if approx_kl>1.5*target_kl:
                 print('Early stopping at step %d due to reaching max kl.'%i)
                 break
+            # if self.algorithm=='vpg':
+            #     break
 
         self.v_model.fit(X, y_v, epochs=train_v_iters, verbose=0)
