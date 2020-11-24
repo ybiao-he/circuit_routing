@@ -36,13 +36,13 @@ def test_policy(env, policy):
 
 if __name__ == '__main__':
 
-    epochs = 10
+    epochs = 100
     local_steps_per_epoch = 1000
 
     env = CREnv()
 
     buf = core.Buffer()
-    rl_policy = policy(env, "ppo")
+    rl_policy = policy(env, "vpg")
 
     o, ep_ret, ep_len = env.reset(), 0, 0
     saved_ep_ret = []
