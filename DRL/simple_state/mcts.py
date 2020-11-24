@@ -81,13 +81,13 @@ class mcts():
         node, select_by_node = self.selectNode(self.root)
         reward, route_paths = self.rollout(node.state)
 
-        print(select_by_node, route_paths)
         if len(route_paths)==0:
             select_by_node.append([-1, -1])
             route_paths = select_by_node
         else:
             # route_paths = reduce(lambda x,y: x+y, route_paths)
             route_paths = select_by_node + route_paths
+        print(route_paths)
         if reward>self.root.totalReward:
         	self.route_paths_saved = route_paths
             # self.write_to_file(route_paths)
