@@ -34,7 +34,7 @@ def test_policy(env, policy):
 if __name__ == '__main__':
 
     epochs = 100
-    local_steps_per_epoch = 1000
+    local_steps_per_epoch = 1500
 
     env = CREnv()
 
@@ -83,7 +83,4 @@ if __name__ == '__main__':
         rl_policy.update(buf)
         buf.reset()
 
-    rl_policy.tf_simple_save()
-    
     np.savetxt("ave_rew.csv", np.array(saved_ep_ret), delimiter=',')
-
