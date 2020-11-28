@@ -33,10 +33,10 @@ def test_policy(env, policy):
 
 if __name__ == '__main__':
 
-    epochs = 100
+    epochs = 1000
     local_steps_per_epoch = 1500
 
-    env = CREnv()
+    env = CREnv(board=np.genfromtxt("./board_30.csv", delimiter=','))
 
     buf = core.Buffer()
     rl_policy = policy(env, "ppo")
@@ -83,4 +83,6 @@ if __name__ == '__main__':
         rl_policy.update(buf)
         buf.reset()
 
-    np.savetxt("ave_rew.csv", np.array(saved_ep_ret), delimiter=',')
+    rl_policy.tf_simple_save("tf1_save_7")
+
+    np.savetxt("ave_rew7.csv", np.array(saved_ep_ret), delimiter=',')
