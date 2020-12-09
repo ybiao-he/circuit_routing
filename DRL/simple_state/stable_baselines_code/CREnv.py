@@ -1,11 +1,13 @@
 from __future__ import division
 
+from copy import copy
 from copy import deepcopy
 from scipy.spatial import distance
 
 import numpy as np
 import gym
 from gym import spaces
+import random
 
 
 class CREnv(gym.Env):
@@ -30,15 +32,15 @@ class CREnv(gym.Env):
 
     def reset(self):
 
-        self.board = np.copy(self.board_backup)
+        self.board = deepcopy(self.board_backup)
 
         self.head_value = 20
+        
+        self.path_length = 0
         self.pairs_idx = 2
 
         # self.max_pair = int(np.amax(self.board))
-        self.max_pair = 2
-
-        self.path_length = 0
+        self.max_pair = 4
 
         # parse the board and get the starts and ends
         self.start = {}
@@ -46,12 +48,24 @@ class CREnv(gym.Env):
         for i in range(self.board.shape[0]):
             for j in range(self.board.shape[1]):
                 if self.board[i,j] != 1 and self.board[i,j] != 0:
-                    if self.board[i,j]<0:
-                        self.finish[-self.board[i,j]] = (i,j)
-                        self.board[i,j] = abs(self.board[i,j])
+                    if abs(self.board[i,j])<=self.max_pair:
+                        if self.board[i,j]<0:
+                            self.finish[-self.board[i,j]] = (i,j)
+                            self.board[i,j] = abs(self.board[i,j])
+                        else:
+                            self.start[self.board[i,j]] = (i,j)
                     else:
-                        self.start[self.board[i,j]] = (i,j)
+                        self.board[i,j] = 0
                 # self.board[i,j] = abs(self.board[i,j])
+
+        net_indices = list(range(self.pairs_idx, self.max_pair+1))
+        random.shuffle(net_indices)
+
+        start_tem = copy(self.start)
+        finish_tem = copy(self.finish)
+        for i, j in enumerate(self.start):
+            self.start[j] = start_tem[net_indices[i]]
+            self.finish[j] = finish_tem[net_indices[i]]
         # initialize the action node
         self.action_node = self.start[self.pairs_idx]
 
@@ -77,11 +91,14 @@ class CREnv(gym.Env):
         y = self.action_node[1]
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
-                self.pairs_idx += 1
-                self.board[self.action_node] = 1
-                self.action_node = self.start[self.pairs_idx]
-                self.board[self.action_node] = self.head_value
-                state = np.array(self.action_node+self.finish[self.pairs_idx])
+                if self.blocking_nets():
+                    self.board[self.action_node] = self.head_value+10
+                else:
+                    self.pairs_idx += 1
+                    self.board[self.action_node] = 1
+                    self.action_node = self.start[self.pairs_idx]
+                    self.board[self.action_node] = self.head_value
+                    state = np.array(self.action_node+self.finish[self.pairs_idx])
             else:
                 self.board[self.action_node] = self.board[self.action_node]*10 + self.head_value
         else:
@@ -126,6 +143,28 @@ class CREnv(gym.Env):
             return float(-left_dist*10-self.path_length)
 
         return 0.0
+
+    def blocking_nets(self):
+
+        from astar import astar
+        board_list = self.board.tolist()
+        start = []
+        finish = []
+        for net_idx in range(self.pairs_idx+1, self.max_pair+1):
+            for i in range(self.board.shape[0]):
+                for j in range(self.board.shape[1]):
+                    if self.board[i,j] != 0:
+                        board_list[i][j] = None
+                    if (i, j) == self.start[net_idx]:
+                        board_list[i,j] = 0
+                        start = (i,j)
+                    if (i, j) == self.finish[net_idx]:
+                        board_list[i,j] = 0
+                        finish = (i,j)
+            path = astar(board_list, start, finish)
+            if path is None:
+                return True
+        return False
 
     def render(self, mode='console'):
         if mode != 'console':
