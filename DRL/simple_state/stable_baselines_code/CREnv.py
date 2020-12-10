@@ -7,7 +7,7 @@ from scipy.spatial import distance
 import numpy as np
 import gym
 from gym import spaces
-import random
+import os, random
 
 
 class CREnv(gym.Env):
@@ -32,15 +32,19 @@ class CREnv(gym.Env):
 
     def reset(self):
 
-        self.board = deepcopy(self.board_backup)
+        # self.board = deepcopy(self.board_backup)
+        directory = './boards_30_30'
+        filename = random.choice(os.listdir(directory))
+        board_rand = os.path.join(directory, filename)
+        self.board = np.genfromtxt(board_rand, delimiter=',')
 
         self.head_value = 20
         
         self.path_length = 0
         self.pairs_idx = 2
 
-        # self.max_pair = int(np.amax(self.board))
-        self.max_pair = 4
+        self.max_pair = int(np.amax(self.board))
+        # self.max_pair = 2
 
         # parse the board and get the starts and ends
         self.start = {}
@@ -91,7 +95,7 @@ class CREnv(gym.Env):
         y = self.action_node[1]
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
-                if self.blocking_nets():
+                if self.blocking_nets_Lee():
                     self.board[self.action_node] = self.head_value+10
                 else:
                     self.pairs_idx += 1
@@ -130,11 +134,6 @@ class CREnv(gym.Env):
 
     def getReward(self):
 
-        # if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx==self.max_pair:
-        #     return -self.path_length
-        # elif self.board[self.action_node] > self.head_value:
-        #     left_dist = distance.cityblock(self.action_node, self.finish[self.pairs_idx])
-        #     return -left_dist*10-self.path_length
         if self.board[self.action_node] > self.head_value:
             left_dist = distance.cityblock(self.action_node, self.finish[self.pairs_idx])
             # print(self.pairs_idx, self.max_pair)
@@ -144,25 +143,53 @@ class CREnv(gym.Env):
 
         return 0.0
 
-    def blocking_nets(self):
+    # def blocking_nets_Astar(self):
 
-        from astar import astar
-        board_list = self.board.tolist()
-        start = []
-        finish = []
+    #     print("cheking this------------------------------------------------------")
+
+    #     from astar import astar
+    #     start = []
+    #     finish = []
+    #     for net_idx in range(self.pairs_idx+1, self.max_pair+1):
+    #         board_list = self.board.tolist()
+    #         for i in range(self.board.shape[0]):
+    #             for j in range(self.board.shape[1]):
+    #                 if self.board[i,j] != 0:
+    #                     board_list[i][j] = None
+    #                 if (i, j) == self.start[net_idx]:
+    #                     board_list[i][j] = 0
+    #                     start = (i,j)
+    #                 if (i, j) == self.finish[net_idx]:
+    #                     board_list[i][j] = 0
+    #                     finish = (i,j)
+    #         path = astar(board_list, start, finish)
+    #         if path is None:
+    #             return True
+    #     return False
+
+    def blocking_nets_Lee(self):
+
+        print("cheking this------------------------------------------------------")
+
+        from LeeAlgm import Field
         for net_idx in range(self.pairs_idx+1, self.max_pair+1):
+            barriers = []
+            start = []
+            finish = []
             for i in range(self.board.shape[0]):
                 for j in range(self.board.shape[1]):
                     if self.board[i,j] != 0:
-                        board_list[i][j] = None
+                        barriers.append((i,j))
                     if (i, j) == self.start[net_idx]:
-                        board_list[i,j] = 0
+                        barriers.remove((i,j))
                         start = (i,j)
                     if (i, j) == self.finish[net_idx]:
-                        board_list[i,j] = 0
+                        barriers.remove((i,j))
                         finish = (i,j)
-            path = astar(board_list, start, finish)
-            if path is None:
+            field = Field(len=30, start=start, finish=finish, barriers=barriers)
+            field.emit()
+            path = field.get_path()
+            if len(path) == 0:
                 return True
         return False
 
