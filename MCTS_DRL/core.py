@@ -1,7 +1,9 @@
 import numpy as np
 import tensorflow as tf
 import scipy.signal
-from tf_layers import conv
+from gym.spaces import Box, Discrete
+
+EPS = 1e-8
 
 class Buffer:
     """
@@ -22,9 +24,10 @@ class Buffer:
         self.ret_buf = []
         self.val_buf = []
         self.logp_buf = []
+        self.p_all_buf = []
         self.ptr, self.path_start_idx = 0, 0  
 
-    def store(self, obs, act, rew, val, logp):
+    def store(self, obs, act, rew, val, logp, p_all):
         """
         Append one timestep of agent-environment interaction to the buffer.
         """
@@ -33,6 +36,7 @@ class Buffer:
         self.rew_buf.append(rew)
         self.val_buf.append(val)
         self.logp_buf.append(logp)
+        self.p_all_buf.append(p_all)
         self.ptr += 1
 
     def finish_path(self, last_val=0):
@@ -70,11 +74,12 @@ class Buffer:
         the buffer, with advantages appropriately normalized (shifted to have
         mean zero and std one). Also, resets some pointers in the buffer.
         """
-        obs_buf = np.array(self.obs_buf)
-        act_buf = np.array(self.act_buf)
-        adv_buf = np.array(self.adv_buf)
-        ret_buf = np.array(self.ret_buf)
-        logp_buf = np.array(self.logp_buf)
+        obs_buf = np.array(self.obs_buf, dtype='float32')
+        act_buf = np.array(self.act_buf, dtype='float32')
+        adv_buf = np.array(self.adv_buf, dtype='float32')
+        ret_buf = np.array(self.ret_buf, dtype='float32')
+        logp_buf = np.array(self.logp_buf, dtype='float32')
+        p_all_buf = np.array(self.p_all_buf, dtype='float32')
         # the next two lines implement the advantage normalization trick
         adv_mean, adv_std = np.mean(adv_buf), np.std(adv_buf)
         adv_buf = (adv_buf - adv_mean) / adv_std
@@ -82,6 +87,8 @@ class Buffer:
 
     def get_length(self):
         return len(self.obs_buf)
+
+
 
 def combined_shape(length, shape=None):
     if shape is None:
@@ -94,43 +101,15 @@ def placeholder(dim=None):
 def placeholders(*args):
     return [placeholder(dim) for dim in args]
 
-def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
-    for h in hidden_sizes[:-1]:
-        x = tf.layers.dense(x, units=h, activation=activation)
-    return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation)
+def placeholder_from_space(space):
+    if isinstance(space, Box):
+        return placeholder(space.shape)
+    elif isinstance(space, Discrete):
+        return tf.placeholder(dtype=tf.int32, shape=(None,))
+    raise NotImplementedError
 
-
-def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
-
-    dropout = 0.25
-    is_training = True
-    # Data input is a 1-D vector of 900 features (30*30 pixels)
-    # Reshape to match picture format [Height x Width x Channel]
-    # Tensor input become 4-D: [Batch Size, Height, Width, Channel]
-    x = tf.reshape(x, shape=[-1, 40, 40, 1])
-
-    # scope = 1
-    for h in hidden_sizes[:-1]:
-        # Convolution Layer with h filters and a kernel size of 5
-        x = tf.layers.conv2d(x, h, 5, activation=activation)
-        # x = activation(conv(x, "c"+str(scope), n_filters=h, filter_size=5, stride=2, init_scale=np.sqrt(2)))
-        # scope += 1
-        # Max Pooling (down-sampling) with strides of 2 and kernel size of 2
-        x = tf.layers.max_pooling2d(x, 2, 2)
-
-    # Flatten the data to a 1-D vector for the fully connected layer
-    fc1 = tf.contrib.layers.flatten(x)
-
-    # Fully connected layer (in tf contrib folder for now)
-    fc1 = tf.layers.dense(fc1, 128)
-    # Apply Dropout (if is_training is False, dropout is not applied)
-    fc1 = tf.layers.dropout(fc1, rate=dropout, training=is_training)
-
-    # Output layer, class prediction
-    out = tf.layers.dense(fc1, units=hidden_sizes[-1], activation=output_activation)
-
-    return out
-
+def placeholders_from_spaces(*args):
+    return [placeholder_from_space(space) for space in args]
 
 def get_vars(scope=''):
     return [x for x in tf.trainable_variables() if scope in x.name]
@@ -138,6 +117,10 @@ def get_vars(scope=''):
 def count_vars(scope=''):
     v = get_vars(scope)
     return sum([np.prod(var.shape.as_list()) for var in v])
+
+def gaussian_likelihood(x, mu, log_std):
+    pre_sum = -0.5 * (((x-mu)/(tf.exp(log_std)+EPS))**2 + 2*log_std + np.log(2*np.pi))
+    return tf.reduce_sum(pre_sum, axis=1)
 
 def discount_cumsum(x, discount):
     """
@@ -156,35 +139,93 @@ def discount_cumsum(x, discount):
     """
     return scipy.signal.lfilter([1], [1, float(-discount)], x[::-1], axis=0)[::-1]
 
-"""
-Policies
-"""
+def mlp(x, hidden_sizes=(32,), activation=tf.tanh, output_activation=None):
+    for l, h in enumerate(hidden_sizes[:-1]):
+        x = tf.layers.dense(x, units=h, activation=activation, name= 'fc'+str(l))
+    return tf.layers.dense(x, units=hidden_sizes[-1], activation=output_activation, name='out')
 
-def cnn_categorical_policy(x, a, hidden_sizes, activation, output_activation, action_dim):
+def cnn(x, hidden_sizes=(32,), activation=tf.nn.relu, output_activation=None):
+
+    dropout = 0.25
+    is_training = True
+    # Data input is a 1-D vector of 900 features (30*30 pixels)
+    # Reshape to match picture format [Height x Width x Channel]
+    # Tensor input become 4-D: [Batch Size, Height, Width, Channel]
+    # x = tf.reshape(x, shape=[-1, 210, 160, 3])
+
+    # scope = 1
+    for h in hidden_sizes[:-1]:
+        # Convolution Layer with h filters and a kernel size of 5
+        x = tf.layers.conv2d(x, h, 5, activation=activation)
+        # x = activation(conv(x, "c"+str(scope), n_filters=h, filter_size=5, stride=2, init_scale=np.sqrt(2)))
+        # scope += 1
+        # Max Pooling (down-sampling) with strides of 2 and kernel size of 2
+        x = tf.layers.max_pooling2d(x, 2, 2)
+
+    # Flatten the data to a 1-D vector for the fully connected layer
+    fc1 = tf.contrib.layers.flatten(x)
+
+    # Fully connected layer (in tf contrib folder for now)
+    fc1 = tf.layers.dense(fc1, 512)
+    # Apply Dropout (if is_training is False, dropout is not applied)
+    fc1 = tf.layers.dropout(fc1, rate=dropout, training=is_training)
+
+    # Output layer, class prediction
+    out = tf.layers.dense(fc1, units=hidden_sizes[-1], activation=output_activation)
+
+    return out
+
+def categorical_policy(x, a, hidden_sizes, activation, output_activation, action_space):
     
-    act_dim = action_dim
+    act_dim = action_space.n
     logits = cnn(x, list(hidden_sizes)+[act_dim], activation, None)
-    p_all = tf.nn.softmax(logits)
+    logp_all = tf.nn.log_softmax(logits)
 
     # pi is the selected action based on p_all (prob for all actions)
-    pi = tf.squeeze(tf.random.categorical(tf.math.log(p_all), 1), axis=1)
+    pi = tf.squeeze(tf.random.categorical(logits, 1), axis=1)
     # p is the prob for the given action a
-    p = tf.reduce_sum(tf.one_hot(a, depth=act_dim) * p_all, axis=1)
+    logp = tf.reduce_sum(tf.one_hot(a, depth=act_dim) * logp_all, axis=1)
     # p_pi is the prob for the selected action pi
-    p_pi = tf.reduce_sum(tf.one_hot(pi, depth=act_dim) * p_all, axis=1)
-    return pi, p, p_pi, p_all
+    logp_pi = tf.reduce_sum(tf.one_hot(pi, depth=act_dim) * logp_all, axis=1)
+    return pi, logp, logp_pi, logp_all
 
 """
-Actor-Critics
+Revised Policies, mainly for cnn-based policy for screenshot-based atari env
 """
-def actor_critic(x, a, hidden_sizes=(128, 128, 128), activation=tf.nn.relu,
-                     output_activation=None, policy=None, action_dim=None):
 
-    # default policy builder depends on action space
-    policy = cnn_categorical_policy
+def actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh, 
+                     output_activation=None, policy=None, action_space=None):
+
+    policy = categorical_policy
 
     with tf.variable_scope('pi'):
-        pi, p, p_pi, p_all = policy(x, a, hidden_sizes, activation, output_activation, action_dim)
+        pi, logp, logp_pi, logp_all = policy(x, a, hidden_sizes, activation, output_activation, action_space)
     with tf.variable_scope('v'):
         v = tf.squeeze(cnn(x, list(hidden_sizes)+[1], activation, None), axis=1)
-    return pi, p, p_pi, v, p_all
+    return pi, logp, logp_pi, v, logp_all
+
+"""
+Default policy from spinup
+"""
+
+def mlp_categorical_policy(x, a, hidden_sizes, activation, output_activation, action_space):
+    act_dim = action_space.n
+    logits = mlp(x, list(hidden_sizes)+[act_dim], activation, None)
+    logp_all = tf.nn.log_softmax(logits, name='logp_all')
+    pi = tf.squeeze(tf.multinomial(logits,1), axis=1, name="pi")
+    logp = tf.reduce_sum(tf.one_hot(a, depth=act_dim) * logp_all, axis=1, name='logp_all')
+    logp_pi = tf.reduce_sum(tf.one_hot(pi, depth=act_dim) * logp_all, axis=1, name='logp_pi')
+    return pi, logp, logp_pi, logp_all
+
+
+def mlp_actor_critic(x, a, hidden_sizes=(64,64), activation=tf.tanh, 
+                     output_activation=None, policy=None, action_space=None):
+
+
+    policy = mlp_categorical_policy
+
+    with tf.variable_scope('pi'):
+        pi, logp, logp_pi, logp_all = policy(x, a, hidden_sizes, activation, output_activation, action_space)
+    with tf.variable_scope('v'):
+        v = tf.squeeze(mlp(x, list(hidden_sizes)+[1], activation, None), axis=1)
+    return pi, logp, logp_pi, v, logp_all

@@ -1,6 +1,0 @@
-board_path ./testboard.csv //give the path of PCB board
-DNN_model_path actor.h5  //give the path of pretrained DNN model
-rollout_times 200 //define the number of iterations
-saved_boards_folder routed_board // give the path of the file to save the results (actions)
-mcts_reward best //best or ave
-node_select best //random or best, if set mcts_reward to best, then node_select should be random
