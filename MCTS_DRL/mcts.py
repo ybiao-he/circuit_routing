@@ -69,6 +69,7 @@ class mcts():
                 self.executeRoundByIters()
 
         # bestChild = self.getBestChildBasedonReward(self.root)
+        # bestChild = self.getBestChild(self.root, self.explorationConstant)
         # return self.getAction(self.root, bestChild), bestChild.totalReward
         return self.route_paths_saved
 
@@ -82,7 +83,7 @@ class mcts():
         reward, route_paths = self.rollout(node.state)
 
         if len(route_paths)==0:
-            select_by_node.append([-1, -1])
+            # select_by_node.append([-1, -1])
             route_paths = select_by_node
         else:
             # route_paths = reduce(lambda x,y: x+y, route_paths)
@@ -94,7 +95,7 @@ class mcts():
         self.backpropogate(node, reward)
 
     def selectNode(self, node):
-        route_by_select = []
+        route_by_select = [node.state.action_node]
         while not node.isTerminal:
             if node.isFullyExpanded:
                 if self.nodeSelect == "best":
@@ -110,7 +111,7 @@ class mcts():
         return node, route_by_select
 
     def expand(self, node):
-        actions = node.state.getPossibleActions()
+        actions, _ = node.state.getPossibleActions()
         for action in actions:
             if action not in node.children.keys():
                 newNode = treeNode(node.state.takeAction(action), node, self.rewardType)
@@ -134,7 +135,6 @@ class mcts():
         bestValue = float("-inf")
         bestNodes = []
         for child in node.children.values():
-
             if self.rewardType == "ave":
                 nodeValue = child.totalReward / child.numVisits + explorationValue * math.sqrt(
                     2 * math.log(node.numVisits) / child.numVisits)
@@ -149,20 +149,20 @@ class mcts():
                 bestNodes.append(child)
         return random.choice(bestNodes)
 
-    # def getBestChildBasedonReward(self, node):
+    def getBestChildBasedonReward(self, node):
 
-    #     bestValue = float("-inf")
-    #     bestNodes = []
-    #     for child in node.children.values():
+        bestValue = float("-inf")
+        bestNodes = []
+        for child in node.children.values():
 
-    #         nodeValue = child.totalReward
+            nodeValue = child.totalReward
 
-    #         if nodeValue > bestValue:
-    #             bestValue = nodeValue
-    #             bestNodes = [child]
-    #         elif nodeValue == bestValue:
-    #             bestNodes.append(child)
-    #     return random.choice(bestNodes)
+            if nodeValue > bestValue:
+                bestValue = nodeValue
+                bestNodes = [child]
+            elif nodeValue == bestValue:
+                bestNodes.append(child)
+        return random.choice(bestNodes)
 
     def getAction(self, root, bestChild):
         for action, node in root.children.items():

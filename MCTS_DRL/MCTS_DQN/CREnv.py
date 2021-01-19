@@ -145,39 +145,41 @@ class CREnv(gym.Env):
                 left_dist += distance.cityblock(self.start[i], self.finish[i])
 
             return -left_dist-self.path_length
+
         return 0
 
     def board_embedding(self):
 
-        from sklearn.decomposition import PCA
+        # from sklearn.decomposition import PCA
 
-        n_pairs = self.max_pair-1
-        nets_matrix = np.zeros((n_pairs,4))
-        obs_matrix = []
-        for i in range(self.board.shape[0]):
-            for j in range(self.board.shape[1]):
-                if self.board[i,j] != 0 and self.board[i,j] <= self.max_pair:
-                    if self.board[i,j] == 1:
-                        obs_matrix.append([i,j])
-                    elif self.board[i,j] > 0:
-                        nets_matrix[int(abs(self.board[i,j]))-2][0] = i
-                        nets_matrix[int(abs(self.board[i,j]))-2][1] = j
-                    else:
-                        nets_matrix[int(abs(self.board[i,j]))-2][2] = i
-                        nets_matrix[int(abs(self.board[i,j]))-2][3] = j
+        # n_pairs = self.max_pair-1
+        # nets_matrix = np.zeros((n_pairs,4))
+        # obs_matrix = []
+        # for i in range(self.board.shape[0]):
+        #     for j in range(self.board.shape[1]):
+        #         if self.board[i,j] != 0 and self.board[i,j] <= self.max_pair:
+        #             if self.board[i,j] == 1:
+        #                 obs_matrix.append([i,j])
+        #             elif self.board[i,j] > 0:
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][0] = i
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][1] = j
+        #             else:
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][2] = i
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][3] = j
 
-        nets_matrix = np.delete(nets_matrix, self.pairs_idx-2, 0)
+        # nets_matrix = np.delete(nets_matrix, self.pairs_idx-2, 0)
 
-        pca_nets = PCA(n_components=1)
-        pca_nets.fit(nets_matrix)
-        nets_vector = pca_nets.components_[0]
+        # pca_nets = PCA(n_components=1)
+        # pca_nets.fit(nets_matrix)
+        # nets_vector = pca_nets.components_[0]
 
-        pca_obs = PCA(n_components=1)
-        pca_obs.fit(obs_matrix)
-        obs_vector = pca_obs.components_[0]
+        # pca_obs = PCA(n_components=1)
+        # pca_obs.fit(obs_matrix)
+        # obs_vector = pca_obs.components_[0]
 
-        # dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
-        state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))/30
+        dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
+        # state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))
+        state = np.array(list(self.action_node)+dist_to_target)
         # state = np.concatenate(( state, np.array(nets_vector.tolist()+obs_vector.tolist()) ), axis=0)
 
         return state

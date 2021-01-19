@@ -34,8 +34,11 @@ class policy(object):
         else:
             print("please select rl algorithm: vpg or ppo")
 
-        self.sess.run(tf.global_variables_initializer())
+        # self.sess.run(tf.global_variables_initializer())
+        self.reset()
 
+    def reset(self):
+        self.sess.run(tf.global_variables_initializer())
 
     def predict_probs(self, obs):
         new_shape = (1,) + obs.shape
@@ -172,7 +175,7 @@ class policy(object):
         model_path = './save_tf1_model'
         save_path = saver.save(self.sess, model_path)
         print("Model saved in file: %s" % save_path)
-        # print(self.sess.run(tf.get_default_graph().get_tensor_by_name('pi/fc0/kernel:0')))
+        self.sess.close()
 
     def tf_restore(self):
         # Restore model weights from previously saved model
@@ -180,9 +183,6 @@ class policy(object):
         model_path = './save_tf1_model'
         saver.restore(self.sess, model_path)
         print("Model restored from file: %s" % model_path)
-
-        # print(tf.global_variables())
-        # print(self.sess.run(tf.get_default_graph().get_tensor_by_name('pi/fc0/kernel:0')))
 
     # following funcions are for MCTS
     def rollout(self, state):
@@ -192,11 +192,12 @@ class policy(object):
 
         while not state.isTerminal():
 
-            o = state.board_embedding()
-            print(o)
+            # o = state.board_embedding()
+            # # print(self.predict_act(o), np.exp(self.predict_probs(o)))
 
-            a = self.predict_act(o)
-            action = direction_list[a[0]]
+            # a = self.predict_act(o)
+            # action = direction_list[a[0]]
+            action = self.choose_action(state)
             node = state.action_node
             node = tuple(map(sum, zip(action, node)))
             route_paths.append(node)
@@ -207,6 +208,27 @@ class policy(object):
 
         return state.getReward(), route_paths
 
+
+    def choose_action(self, state):
+
+        direction_list = [(-1, 0), (0, 1), (1, 0), (0, -1)]
+        o = state.board_embedding()
+        actions_probs = np.exp(self.predict_probs(o))[0]
+
+        for i in range(len(direction_list)):
+            d = direction_list[i]
+            x = state.action_node[0] + d[0]
+            y = state.action_node[1] + d[1]
+            if 0 <= x < state.board.shape[0] and 0 <= y < state.board.shape[1] and (state.board[(x,y)] == 0 or (x,y) == state.finish[state.pairs_idx]):
+                continue
+            else:
+                actions_probs[i] = 0 
+
+        if sum(actions_probs) == 0:
+            actions_probs = np.ones(actions_probs.shape)
+        actions_probs = actions_probs/sum(actions_probs)
+        action_idx = np.random.choice(len(direction_list), p=actions_probs)
+        return direction_list[action_idx]
 
     # def tf_simple_save(self):
     #     """

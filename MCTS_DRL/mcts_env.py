@@ -11,21 +11,17 @@ from scipy.spatial import distance
 class circuitBoard():
     def __init__(self, board):
 
-        self.board_backup = np.copy(board)
-
         self.directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        self.reset()
+        self.reset(board)
 
-    def reset(self):
+    def reset(self, board):
 
-        self.board = np.copy(self.board_backup)
-
-        self.head_value = 20
-        self.pairs_idx = 2
+        self.board = copy(np.array(board))
 
         self.max_pair = int(np.amax(self.board))
         # self.max_pair = 3
+        self.head_value = self.max_pair*2
 
         self.path_length = 0
 
@@ -34,49 +30,48 @@ class circuitBoard():
         self.finish = {}
         for i in range(self.board.shape[0]):
             for j in range(self.board.shape[1]):
-                if self.board[i,j] != 1 and self.board[i,j] != 0:
+                if abs(self.board[i,j]) >= 2:
                     if self.board[i,j]<0:
                         self.finish[-self.board[i,j]] = (i,j)
                         self.board[i,j] = abs(self.board[i,j])
                     else:
                         self.start[self.board[i,j]] = (i,j)
-                # self.board[i,j] = abs(self.board[i,j])
         # initialize the action node
-        self.action_node = self.start[self.pairs_idx]
+        # print(self.start, self.finish, self.pairs_idx)
+        if len(self.start) > 0:
+            self.pairs_idx = int(min(self.start.keys()))
+            self.action_node = self.start[self.pairs_idx]
 
-        self.board[self.action_node] = self.head_value
-        # self.board[self.finish[self.pairs_idx]] = self.head_value
-
-        return self.board_embedding()
+        return self
 
     def board_embedding(self):
 
-        from sklearn.decomposition import PCA
+        # from sklearn.decomposition import PCA
 
-        n_pairs = self.max_pair-1
-        nets_matrix = np.zeros((n_pairs,4))
-        obs_matrix = []
-        for i in range(self.board.shape[0]):
-            for j in range(self.board.shape[1]):
-                if self.board[i,j] != 0 and self.board[i,j] <= self.max_pair:
-                    if self.board[i,j] == 1:
-                        obs_matrix.append([i,j])
-                    elif self.board[i,j] > 0:
-                        nets_matrix[int(abs(self.board[i,j]))-2][0] = i
-                        nets_matrix[int(abs(self.board[i,j]))-2][1] = j
-                    else:
-                        nets_matrix[int(abs(self.board[i,j]))-2][2] = i
-                        nets_matrix[int(abs(self.board[i,j]))-2][3] = j
+        # n_pairs = self.max_pair-1
+        # nets_matrix = np.zeros((n_pairs,4))
+        # obs_matrix = []
+        # for i in range(self.board.shape[0]):
+        #     for j in range(self.board.shape[1]):
+        #         if self.board[i,j] != 0 and self.board[i,j] <= self.max_pair:
+        #             if self.board[i,j] == 1:
+        #                 obs_matrix.append([i,j])
+        #             elif self.board[i,j] > 0:
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][0] = i
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][1] = j
+        #             else:
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][2] = i
+        #                 nets_matrix[int(abs(self.board[i,j]))-2][3] = j
 
-        nets_matrix = np.delete(nets_matrix, self.pairs_idx-2, 0)
+        # nets_matrix = np.delete(nets_matrix, self.pairs_idx-2, 0)
 
-        pca_nets = PCA(n_components=1)
-        pca_nets.fit(nets_matrix)
-        nets_vector = pca_nets.components_[0]
+        # pca_nets = PCA(n_components=1)
+        # pca_nets.fit(nets_matrix)s
+        # nets_vector = pca_nets.components_[0]
 
-        pca_obs = PCA(n_components=1)
-        pca_obs.fit(obs_matrix)
-        obs_vector = pca_obs.components_[0]
+        # pca_obs = PCA(n_components=1)
+        # pca_obs.fit(obs_matrix)
+        # obs_vector = pca_obs.components_[0]
 
         # print(nets_vector.tolist()+obs_vector.tolist())
 
@@ -85,7 +80,6 @@ class circuitBoard():
 
         return state
 
-
     def getPossibleActions(self):
         possibleActions = []
         for d in self.directions:
@@ -93,13 +87,15 @@ class circuitBoard():
             x = self.action_node[0] + d[0]
             y = self.action_node[1] + d[1]
             if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
-                if self.board[(x,y)] == 0 or self.board[(x,y)] == self.pairs_idx:
+                if self.board[(x,y)] == 0 or (x,y) == self.finish[self.pairs_idx]:
                     possibleActions.append((d[0], d[1]))
 
+        action_left = True
         if len(possibleActions)==0:
-            possibleActions.append(random.choice(self.directions))
+            action_left = False
+            possibleActions.append(self.directions[0])
 
-        return possibleActions
+        return possibleActions, action_left
 
     def takeAction(self, action):
 
@@ -114,16 +110,7 @@ class circuitBoard():
         x = newState.action_node[0]
         y = newState.action_node[1]
         if 0 <= x < newState.board.shape[0] and 0 <= y < newState.board.shape[1]:
-            if newState.action_node == newState.finish[newState.pairs_idx] and newState.pairs_idx<newState.max_pair:
-                if newState.blocking_nets_Lee():
-                    newState.board[newState.action_node] = newState.head_value+10
-                else:
-                    newState.pairs_idx += 1
-                    newState.board[newState.action_node] = 1
-                    newState.action_node = newState.start[newState.pairs_idx]
-                    newState.board[newState.action_node] = newState.head_value
-            else:
-                newState.board[newState.action_node] = newState.board[newState.action_node]*10 + newState.head_value
+            newState.board[newState.action_node] = newState.board[newState.action_node]*10 + newState.head_value
         else:
             newState.action_node = action_node_pre
             newState.board[newState.action_node] = newState.head_value+10
@@ -140,13 +127,20 @@ class circuitBoard():
         return False
 
     def getReward(self):
+
+        if self.action_node == self.finish[self.pairs_idx]:
+            left_dist = 0
+            if self.blocking_nets_Lee():
+                for i in range(self.pairs_idx+1, self.max_pair):
+                    left_dist += distance.cityblock(self.start[i], self.finish[i])
+            return -left_dist-self.path_length
+
         if self.board[self.action_node] > self.head_value:
-            left_dist = distance.cityblock(self.action_node, self.finish[self.pairs_idx])
-            # print(self.pairs_idx, self.max_pair)
+            left_dist = 10*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
             for i in range(self.pairs_idx+1, self.max_pair):
                 left_dist += distance.cityblock(self.start[i], self.finish[i])
-            return -left_dist*10-self.path_length
 
+            return -left_dist-self.path_length
         return 0
 
     def blocking_nets_Lee(self):
@@ -177,3 +171,28 @@ class circuitBoard():
             except:
                 return True
         return False
+
+    def place_path(self, path):
+
+        from copy import copy
+
+        board = copy(self.board)
+
+        for i, v in self.finish.items():
+            board[v] = -i
+
+        actions = []
+        if self.finish[self.pairs_idx] in path:
+            for vertex in path:
+                self.board[vertex] = 1
+            if not self.blocking_nets_Lee():
+                for vertex in path:
+                    board[vertex] = 1
+                actions = path
+                return board, actions
+
+        vertex = path[1]
+        board[vertex] = self.pairs_idx
+        actions = [vertex]
+        
+        return board, actions

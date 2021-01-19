@@ -44,29 +44,27 @@ class Field(object):
                 q.put(d)
 
     def get_path(self):
-        if self[self.finish[0]][self.finish[1]] == 0 or \
-                self[self.finish[0]][self.finish[1]] == -1:
-            raise
+        # if self[self.finish[0]][self.finish[1]] == 0 or \
+        #         self[self.finish[0]][self.finish[1]] == -1:
+        #     raise
 
         path = []
         item = self.finish
         while not path.append(item) and item != self.__start:
             l = (item[0]-1, item[1])
+            r = (item[0]+1, item[1])
+            u = (item[0], item[1]-1)
+            d = (item[0], item[1]+1)
             if l[0] >= 0 and self[l[0]][l[1]] == self[item[0]][item[1]] - 1:
                 item = l
-                continue
-            r = (item[0]+1, item[1])
-            if r[0] < self._len and self[r[0]][r[1]] == self[item[0]][item[1]] - 1:
+            elif r[0] < self._len and self[r[0]][r[1]] == self[item[0]][item[1]] - 1:
                 item = r
-                continue
-            u = (item[0], item[1]-1)
-            if u[1] >= 0 and self[u[0]][u[1]] == self[item[0]][item[1]] - 1:
+            elif u[1] >= 0 and self[u[0]][u[1]] == self[item[0]][item[1]] - 1:
                 item = u
-                continue
-            d = (item[0], item[1]+1)
-            if d[1] < self._len and self[d[0]][d[1]] == self[item[0]][item[1]] - 1:
+            elif d[1] < self._len and self[d[0]][d[1]] == self[item[0]][item[1]] - 1:
                 item = d
-                continue
+            else:
+                break
         return path
 
     def update(self):
