@@ -26,9 +26,9 @@ class CREnv(gym.Env):
         self.action_space = spaces.Discrete(n_actions)
         self.observation_space = spaces.Box(low=0, high=30, shape=self.state_shape, dtype=np.float32)
 
-    def reset(self, board):
+    def reset(self):
 
-        self.board = copy(board)
+        self.board = np.genfromtxt("./board_30.csv", delimiter=',')
         # read board form dir
         # directory = './boards_30_30'
         # filename = random.choice(os.listdir(directory))

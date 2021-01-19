@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import tensorflow.compat.v1 as tf_v1
 from gym.spaces import Box, Discrete
 
 from memory import ReplayBuffer
@@ -31,9 +32,19 @@ class DqnPolicy(object):
         self.layer_sizes = layer_sizes
         self.step_size = step_size
         self.state_dim = state_dim
+        self.sess = tf.Session()
 
     def init_target_q_net(self):
         self.sess.run([v_t.assign(v) for v_t, v in zip(self.q_target_vars, self.q_vars)])
+
+    def scope_vars(self, scope, only_trainable=True):
+        collection = tf_v1.GraphKeys.TRAINABLE_VARIABLES if only_trainable else tf.GraphKeys.VARIABLES
+        variables = tf_v1.get_collection(collection, scope=scope)
+        assert len(variables) > 0
+        print(f"Variables in scope '{scope}':")
+        for v in variables:
+            print("\t" + str(v))
+        return variables 
 
     def create_q_networks(self):
         # The first dimension should have batch_size * step_size
@@ -72,26 +83,26 @@ class DqnPolicy(object):
 
         self.learning_rate = tf.placeholder(tf.float32, shape=None, name='learning_rate')
         self.loss = tf.reduce_mean(tf.square(pred - tf.stop_gradient(y)), name="loss_mse_train")
-        self.optimizer = tf.train.AdamOptimizer(
+        self.optimizer = tf_v1.train.AdamOptimizer(
             self.learning_rate).minimize(self.loss, name="adam_optim")
 
         with tf.variable_scope('summary'):
             q_summ = []
             avg_q = tf.reduce_mean(self.q, 0)
             for idx in range(self.act_size):
-                q_summ.append(tf.summary.histogram('q/%s' % idx, avg_q[idx]))
-            self.q_summ = tf.summary.merge(q_summ, 'q_summary')
+                q_summ.append(tf_v1.summary.histogram('q/%s' % idx, avg_q[idx]))
+            self.q_summ = tf_v1.summary.merge(q_summ, 'q_summary')
 
-            self.q_y_summ = tf.summary.histogram("batch/y", y)
-            self.q_pred_summ = tf.summary.histogram("batch/pred", pred)
-            self.loss_summ = tf.summary.scalar("loss", self.loss)
+            self.q_y_summ = tf_v1.summary.histogram("batch/y", y)
+            self.q_pred_summ = tf_v1.summary.histogram("batch/pred", pred)
+            self.loss_summ = tf_v1.summary.scalar("loss", self.loss)
 
             self.ep_reward = tf.placeholder(tf.float32, name='episode_reward')
-            self.ep_reward_summ = tf.summary.scalar('episode_reward', self.ep_reward)
+            self.ep_reward_summ = tf_v1.summary.scalar('episode_reward', self.ep_reward)
 
-            self.merged_summary = tf.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
+            self.merged_summary = tf_v1.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
 
-        self.sess.run(tf.global_variables_initializer())
+        self.sess.run(tf_v1.global_variables_initializer())
         self.init_target_q_net()
 
     def update_target_q_net(self):
@@ -104,9 +115,19 @@ class DqnPolicy(object):
         with self.sess.as_default():
             return self.actions_selected_by_q.eval({self.states: [state]})[-1]
 
+    @property
+    def act_size(self):
+        # number of options of an action; this only makes sense for discrete actions.
+        if isinstance(self.env.action_space, Discrete):
+            return self.env.action_space.n
+        else:
+            return None
+
     ##########
 
-    class TrainConfig(TrainConfig):
+
+    def train(self):
+
         lr = 0.001
         lr_decay = 1.0
         epsilon = 1.0
@@ -117,22 +138,20 @@ class DqnPolicy(object):
         warmup_episodes = 450
         log_every_episode = 10
 
-    def train(self, config: TrainConfig):
-
-        buff = ReplayBuffer(capacity=config.memory_capacity)
+        buff = ReplayBuffer(capacity=memory_capacity)
 
         reward = 0.
         reward_history = [0.0]
         reward_averaged = []
 
-        lr = config.lr
-        eps = config.epsilon
-        annealing_episodes = config.warmup_episodes or config.n_episodes
-        eps_drop = (config.epsilon - config.epsilon_final) / annealing_episodes
+
+        eps = epsilon
+        annealing_episodes = warmup_episodes or n_episodes
+        eps_drop = (epsilon - epsilon_final) / annealing_episodes
         print("eps_drop:", eps_drop)
         step = 0
 
-        for n_episode in range(config.n_episodes):
+        for n_episode in range(n_episodes):
             ob = self.env.reset()
             done = False
             traj = []
@@ -152,6 +171,7 @@ class DqnPolicy(object):
 
                 # Training with a mini batch of samples!
                 batch_data = buff.sample(self.batch_size)
+                print(batch_data)
                 feed_dict = {
                     self.learning_rate: lr,
                     self.states: batch_data['s'],
@@ -166,8 +186,8 @@ class DqnPolicy(object):
                     [self.optimizer, self.q, self.q_target, self.loss, self.merged_summary],
                     feed_dict
                 )
-                self.writer.add_summary(summ_str, step)
-                if step % config.target_update_every_step:
+                # self.writer.add_summary(summ_str, step)
+                if step % target_update_every_step:
                     self.update_target_q_net()
 
             # Add all the transitions of one trajectory into the replay memory.
@@ -179,11 +199,11 @@ class DqnPolicy(object):
             reward = 0.
 
             # Annealing the learning and exploration rate after every episode.
-            lr *= config.lr_decay
-            if eps > config.epsilon_final:
-                eps = max(eps - eps_drop, config.epsilon_final)
+            lr *= lr_decay
+            if eps > epsilon_final:
+                eps = max(eps - eps_drop, epsilon_final)
 
-            if reward_history and config.log_every_episode and n_episode % config.log_every_episode == 0:
+            if reward_history and log_every_episode and n_episode % log_every_episode == 0:
                 # Report the performance every `every_step` steps
                 print(
                     "[episodes:{}/step:{}], best:{}, avg:{:.2f}:{}, lr:{:.4f}, eps:{:.4f}".format(
@@ -195,3 +215,13 @@ class DqnPolicy(object):
 
         print("[FINAL] episodes: {}, Max reward: {}, Average reward: {}".format(
             len(reward_history), np.max(reward_history), np.mean(reward_history)))
+
+
+if __name__ == '__main__':
+
+    from CREnv import CREnv
+    env = CREnv()
+    env.reset()
+    DQN = DqnPolicy(env=env, name='dqn')
+    DQN.build()
+    DQN.train()
