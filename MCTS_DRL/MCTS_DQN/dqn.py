@@ -141,7 +141,7 @@ class DqnPolicy(object):
         buff = ReplayBuffer(capacity=memory_capacity)
 
         reward = 0.
-        reward_history = [0.0]
+        reward_history = []
         reward_averaged = []
 
 
@@ -171,7 +171,7 @@ class DqnPolicy(object):
 
                 # Training with a mini batch of samples!
                 batch_data = buff.sample(self.batch_size)
-                print(batch_data)
+                # print(batch_data)
                 feed_dict = {
                     self.learning_rate: lr,
                     self.states: batch_data['s'],
@@ -216,6 +216,11 @@ class DqnPolicy(object):
         print("[FINAL] episodes: {}, Max reward: {}, Average reward: {}".format(
             len(reward_history), np.max(reward_history), np.mean(reward_history)))
 
+        np.savetxt("reward_history.csv", np.array(reward_history), delimiter=",")
+
+        import matplotlib.pyplot as plt
+        plt.plot(reward_history)
+        plt.savefig("training_plot.png")
 
 if __name__ == '__main__':
 

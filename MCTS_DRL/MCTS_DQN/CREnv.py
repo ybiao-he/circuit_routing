@@ -94,20 +94,20 @@ class CREnv(gym.Env):
         x = self.action_node[0]
         y = self.action_node[1]
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
-            # if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
-            #     if self.blocking_nets_Lee():
-            #         self.board[self.action_node] = self.head_value+10
-            #     else:
-            #         self.pairs_idx += 1
-            #         self.board[self.action_node] = 1
-            #         self.action_node = self.start[self.pairs_idx]
-            #         self.board[self.action_node] = self.head_value
-            #         # state = np.array(self.action_node+self.finish[self.pairs_idx])
-            #         state = self.board_embedding()
-            # else:
-            #     self.board[self.action_node] = self.board[self.action_node]*10 + self.head_value
-            # if self.action_node == self.finish[self.pairs_idx]:
-            self.board[self.action_node] = self.board[self.action_node]*10 + self.head_value
+            if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
+                if self.blocking_nets_Lee():
+                    self.board[self.action_node] = self.head_value+10
+                else:
+                    self.pairs_idx += 1
+                    self.board[self.action_node] = 1
+                    self.action_node = self.start[self.pairs_idx]
+                    self.board[self.action_node] = self.head_value
+                    # state = np.array(self.action_node+self.finish[self.pairs_idx])
+                    state = self.board_embedding()
+            else:
+                self.board[self.action_node] = self.board[self.action_node]*10 + self.head_value
+
+            # self.board[self.action_node] = self.board[self.action_node]*10 + self.head_value
         else:
             self.action_node = action_node_pre
             self.board[self.action_node] = self.head_value+10
@@ -132,12 +132,12 @@ class CREnv(gym.Env):
 
     def getReward(self):
 
-        if self.action_node == self.finish[self.pairs_idx]:
-            left_dist = 0
-            if self.blocking_nets_Lee():
-                for i in range(self.pairs_idx+1, self.max_pair):
-                    left_dist += distance.cityblock(self.start[i], self.finish[i])
-            return -left_dist-self.path_length
+        # if self.action_node == self.finish[self.pairs_idx]:
+        #     left_dist = 0
+        #     if self.blocking_nets_Lee():
+        #         for i in range(self.pairs_idx+1, self.max_pair):
+        #             left_dist += distance.cityblock(self.start[i], self.finish[i])
+        #     return -left_dist-self.path_length
 
         if self.board[self.action_node] > self.head_value:
             left_dist = 10*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
@@ -149,33 +149,6 @@ class CREnv(gym.Env):
         return 0
 
     def board_embedding(self):
-
-        # from sklearn.decomposition import PCA
-
-        # n_pairs = self.max_pair-1
-        # nets_matrix = np.zeros((n_pairs,4))
-        # obs_matrix = []
-        # for i in range(self.board.shape[0]):
-        #     for j in range(self.board.shape[1]):
-        #         if self.board[i,j] != 0 and self.board[i,j] <= self.max_pair:
-        #             if self.board[i,j] == 1:
-        #                 obs_matrix.append([i,j])
-        #             elif self.board[i,j] > 0:
-        #                 nets_matrix[int(abs(self.board[i,j]))-2][0] = i
-        #                 nets_matrix[int(abs(self.board[i,j]))-2][1] = j
-        #             else:
-        #                 nets_matrix[int(abs(self.board[i,j]))-2][2] = i
-        #                 nets_matrix[int(abs(self.board[i,j]))-2][3] = j
-
-        # nets_matrix = np.delete(nets_matrix, self.pairs_idx-2, 0)
-
-        # pca_nets = PCA(n_components=1)
-        # pca_nets.fit(nets_matrix)
-        # nets_vector = pca_nets.components_[0]
-
-        # pca_obs = PCA(n_components=1)
-        # pca_obs.fit(obs_matrix)
-        # obs_vector = pca_obs.components_[0]
 
         dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
         # state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))
