@@ -174,7 +174,7 @@ class DqnPolicy(object):
         epsilon_final = 0.01
         memory_capacity = 100000
         target_update_every_step = 100
-        n_episodes = 5000
+        n_episodes = 500
         warmup_episodes = 450
         log_every_episode = 10
 

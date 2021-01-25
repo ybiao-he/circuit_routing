@@ -120,17 +120,13 @@ class CREnv(gym.Env):
 
     def getReward(self):
 
-        # if self.action_node == self.finish[self.pairs_idx]:
-        #     left_dist = 0
-        #     if self.blocking_nets_Lee():
-        #         for i in range(self.pairs_idx+1, self.max_pair):
-        #             left_dist += distance.cityblock(self.start[i], self.finish[i])
-        #     return -left_dist-self.path_length
+        if self.action_node == self.finish[self.max_pair]:
+            return -self.path_length
 
         if self.board[self.action_node] > self.head_value:
-            left_dist = 10*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
+            left_dist = 5*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
             for i in range(self.pairs_idx+1, self.max_pair):
-                left_dist += distance.cityblock(self.start[i], self.finish[i])
+                left_dist += 2*distance.cityblock(self.start[i], self.finish[i])
 
             return -left_dist-self.path_length
 
