@@ -200,6 +200,7 @@ class DqnPolicy(object):
 
                 # turn node in traj (from mcts) into action
                 d_node = (t[0]-self.env.action_node[0], t[1]-self.env.action_node[1])
+                # print(t, self.env.action_node)
                 a = self.env.directions.index(d_node)
 
                 new_ob, r, done, info = self.env.step(a)

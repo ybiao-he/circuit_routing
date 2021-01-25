@@ -82,7 +82,7 @@ class mcts():
         reward, route_paths = self.rollout(node.state)
 
         if len(route_paths)==0:
-            select_by_node.append([-1, -1])
+            # select_by_node.append([-1, -1])
             route_paths = select_by_node
         else:
             # route_paths = reduce(lambda x,y: x+y, route_paths)
