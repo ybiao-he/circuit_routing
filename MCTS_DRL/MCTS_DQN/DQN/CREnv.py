@@ -28,12 +28,12 @@ class CREnv(gym.Env):
 
     def reset(self):
 
-        self.board = np.genfromtxt("./board_30.csv", delimiter=',')
+        # self.board = np.genfromtxt("./board_30.csv", delimiter=',')
         # read board form dir
-        # directory = './boards_30_30'
-        # filename = random.choice(os.listdir(directory))
-        # board_rand = os.path.join(directory, filename)
-        # self.board = np.genfromtxt(board_rand, delimiter=',')
+        directory = './boards_30_30'
+        filename = random.choice(os.listdir(directory))
+        board_rand = os.path.join(directory, filename)
+        self.board = np.genfromtxt(board_rand, delimiter=',')
 
         self.head_value = 20
         
@@ -73,7 +73,7 @@ class CREnv(gym.Env):
         self.action_node = self.start[self.pairs_idx]
 
         self.board[self.action_node] = self.head_value
-        print(self.start, self.finish)
+        # print(self.start, self.finish)
 
         state = self.board_embedding()
         return state

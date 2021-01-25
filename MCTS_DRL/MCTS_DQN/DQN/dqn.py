@@ -113,6 +113,7 @@ class DqnPolicy(object):
             return self.env.action_space.sample()
 
         with self.sess.as_default():
+            print(self.q.eval({self.states: [state]}))
             return self.actions_selected_by_q.eval({self.states: [state]})[-1]
 
     @property
@@ -216,11 +217,11 @@ class DqnPolicy(object):
         print("[FINAL] episodes: {}, Max reward: {}, Average reward: {}".format(
             len(reward_history), np.max(reward_history), np.mean(reward_history)))
 
-        np.savetxt("reward_history.csv", np.array(reward_history), delimiter=",")
+        np.savetxt("reward_history_mcts.csv", np.array(reward_history), delimiter=",")
 
         import matplotlib.pyplot as plt
         plt.plot(reward_history)
-        plt.savefig("training_plot.png")
+        plt.savefig("training_plot_mcts.png")
 
 if __name__ == '__main__':
 
@@ -230,3 +231,10 @@ if __name__ == '__main__':
     DQN = DqnPolicy(env=env, name='dqn')
     DQN.build()
     DQN.train()
+
+    # import gym
+    # env = gym.make('CartPole-v1')
+    # env.reset()
+    # DQN = DqnPolicy(env=env, name='dqn')
+    # DQN.build()
+    # DQN.train()
