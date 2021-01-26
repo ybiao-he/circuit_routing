@@ -108,12 +108,12 @@ class DqnPolicy(object):
     def update_target_q_net(self):
         self.sess.run([v_t.assign(v) for v_t, v in zip(self.q_target_vars, self.q_vars)])
 
-    def act(self, state, epsilon=0.1):
+    def act(self, state, epsilon=0.2):
         if self.training and np.random.random() < epsilon:
             return self.env.action_space.sample()
 
         with self.sess.as_default():
-            print(self.q.eval({self.states: [state]}))
+            # print(self.q.eval({self.states: [state]}))
             return self.actions_selected_by_q.eval({self.states: [state]})[-1]
 
     @property
@@ -124,8 +124,47 @@ class DqnPolicy(object):
         else:
             return None
 
-    ##########
+    #############
+    # MCTS part #
+    #############
+    def act_mcts(self, epsilon=0.1):
 
+        from mcts import mcts
+        import math
+
+        rollout_times = 200
+        mcts_reward = 'best'
+        mcts_node_select = 'best'
+        MCTS_tem = mcts(iterationLimit=rollout_times, rolloutPolicy=self.rollout,
+                        rewardType=mcts_reward, nodeSelect=mcts_node_select, 
+                        explorationConstant=0.5/math.sqrt(2))
+
+        action = MCTS_tem.search(initialState=self.env)
+        return action
+
+    def rollout(self, state):
+
+        route_paths = []
+
+
+        while not state.isTerminal():
+
+            o = state.board_embedding()
+
+            a = self.act(o)
+            # print(a)
+            action = state.directions[a]
+            node = state.action_node
+            node = tuple(map(sum, zip(action, node)))
+            route_paths.append(node)
+
+            # logp_all = np.exp(policy.predict_probs(o))
+            # print(logp_all)
+            state = state.takeAction(action)
+
+        return state.getReward(), route_paths
+
+    ##########
 
     def train(self):
 
@@ -135,7 +174,7 @@ class DqnPolicy(object):
         epsilon_final = 0.01
         memory_capacity = 100000
         target_update_every_step = 100
-        n_episodes = 1000
+        n_episodes = 500
         warmup_episodes = 450
         log_every_episode = 10
 
@@ -145,8 +184,6 @@ class DqnPolicy(object):
         reward_history = []
         reward_averaged = []
 
-        max_reward = -10000
-        best_traj = []
 
         eps = epsilon
         annealing_episodes = warmup_episodes or n_episodes
@@ -160,7 +197,9 @@ class DqnPolicy(object):
             traj = []
 
             while not done:
-                a = self.act(ob, eps)
+                d_node = self.act_mcts()
+                a = self.env.directions.index(d_node)
+                print(d_node)
                 new_ob, r, done, info = self.env.step(a)
                 step += 1
                 reward += r
@@ -196,9 +235,6 @@ class DqnPolicy(object):
             # Add all the transitions of one trajectory into the replay memory.
             buff.add(traj)
 
-            if reward>max_reward:
-                best_traj = [a_t[1] for a_t in traj]
-
             # One episode is complete.
             reward_history.append(reward)
             reward_averaged.append(np.mean(reward_history[-10:]))
@@ -222,12 +258,11 @@ class DqnPolicy(object):
         print("[FINAL] episodes: {}, Max reward: {}, Average reward: {}".format(
             len(reward_history), np.max(reward_history), np.mean(reward_history)))
 
-        np.savetxt("reward_history.csv", np.array(reward_history), delimiter=",")
-        np.savetxt("best_traj.csv", np.array(best_traj), delimiter=",")
+        np.savetxt("reward_history_mcts.csv", np.array(reward_history), delimiter=",")
 
         import matplotlib.pyplot as plt
         plt.plot(reward_history)
-        plt.savefig("training_plot.png")
+        plt.savefig("training_plot_mcts.png")
 
 if __name__ == '__main__':
 
@@ -237,10 +272,3 @@ if __name__ == '__main__':
     DQN = DqnPolicy(env=env, name='dqn')
     DQN.build()
     DQN.train()
-
-    # import gym
-    # env = gym.make('CartPole-v1')
-    # env.reset()
-    # DQN = DqnPolicy(env=env, name='dqn')
-    # DQN.build()
-    # DQN.train()

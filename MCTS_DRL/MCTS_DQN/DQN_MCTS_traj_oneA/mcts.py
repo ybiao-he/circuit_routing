@@ -68,9 +68,9 @@ class mcts():
             for i in range(self.searchLimit):
                 self.executeRoundByIters()
 
-        # bestChild = self.getBestChildBasedonReward(self.root)
-        # return self.getAction(self.root, bestChild), bestChild.totalReward
-        return self.route_paths_saved
+        bestChild = self.getBestChild(self.root, self.explorationConstant)
+        return self.getAction(self.root, bestChild)
+        # return self.route_paths_saved
 
     def executeRound(self):
         node = self.selectNode(self.root)
@@ -99,7 +99,6 @@ class mcts():
             if node.isFullyExpanded:
                 if self.nodeSelect == "best":
                     node = self.getBestChild(node, self.explorationConstant)
-                    # node = self.getBestChildBasedonReward(node)
                 else:
                     node = random.choice( list(node.children.values()) )
 

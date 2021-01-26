@@ -95,15 +95,15 @@ class CREnv(gym.Env):
         y = self.action_node[1]
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
-                if self.blocking_nets_Lee():
-                    self.board[self.action_node] = self.head_value+10
-                else:
-                    self.pairs_idx += 1
-                    self.board[self.action_node] = 1
-                    self.action_node = self.start[self.pairs_idx]
-                    self.board[self.action_node] = self.head_value
-                    # state = np.array(self.action_node+self.finish[self.pairs_idx])
-                    state = self.board_embedding()
+                # if self.blocking_nets_Lee():
+                #     self.board[self.action_node] = self.head_value+10
+                # else:
+                self.pairs_idx += 1
+                self.board[self.action_node] = 1
+                self.action_node = self.start[self.pairs_idx]
+                self.board[self.action_node] = self.head_value
+                # state = np.array(self.action_node+self.finish[self.pairs_idx])
+                state = self.board_embedding()
             else:
                 self.board[self.action_node] = self.board[self.action_node]*10 + self.head_value
 
@@ -132,13 +132,13 @@ class CREnv(gym.Env):
 
     def getReward(self):
 
-        if self.action_node == self.finish[self.max_pair]:
+        if self.max_pair == self.pairs_idx and self.action_node == self.finish[self.max_pair]:
             return -self.path_length
 
         if self.board[self.action_node] > self.head_value:
             left_dist = 5*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
             for i in range(self.pairs_idx+1, self.max_pair):
-                left_dist += 2*distance.cityblock(self.start[i], self.finish[i])
+                left_dist += 5*distance.cityblock(self.start[i], self.finish[i])
 
             return -left_dist-self.path_length
 

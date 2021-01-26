@@ -108,7 +108,7 @@ class DqnPolicy(object):
     def update_target_q_net(self):
         self.sess.run([v_t.assign(v) for v_t, v in zip(self.q_target_vars, self.q_vars)])
 
-    def act(self, state, epsilon=0.1):
+    def act(self, state, epsilon=0.2):
         if self.training and np.random.random() < epsilon:
             return self.env.action_space.sample()
 
@@ -132,7 +132,7 @@ class DqnPolicy(object):
         from mcts import mcts
         import math
 
-        rollout_times = 20
+        rollout_times = 200
         mcts_reward = 'best'
         mcts_node_select = 'best'
         MCTS_tem = mcts(iterationLimit=rollout_times, rolloutPolicy=self.rollout,
@@ -195,12 +195,13 @@ class DqnPolicy(object):
             ob = self.env.reset()
             traj_mcts = self.mcts_traj()
             traj = []
+            print(traj_mcts)
 
             for t in traj_mcts:
 
                 # turn node in traj (from mcts) into action
                 d_node = (t[0]-self.env.action_node[0], t[1]-self.env.action_node[1])
-                # print(t, self.env.action_node)
+                print(t, self.env.action_node)
                 a = self.env.directions.index(d_node)
 
                 new_ob, r, done, info = self.env.step(a)
@@ -212,7 +213,7 @@ class DqnPolicy(object):
 
                 # No enough samples in the buffer yet.
                 if buff.size < self.batch_size:
-                    break
+                    continue
 
                 # Training with a mini batch of samples!
                 batch_data = buff.sample(self.batch_size)
