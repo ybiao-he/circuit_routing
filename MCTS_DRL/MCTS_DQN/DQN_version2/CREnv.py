@@ -15,12 +15,21 @@ class CREnv(gym.Env):
     Custom Environment that follows gym interface.
     This is an env for circuit routing. 
     """
-    def __init__(self):
+    def __init__(self, network_type='conv'):
         super(CREnv, self).__init__()
 
         self.directions = [(-1, 0), (0, 1), (1, 0), (0, -1)]
 
-        self.state_shape = (4,)
+        self.network_type = network_type
+
+        if self.network_type == 'dense':
+            # Vanilla NN version
+            self.state_shape = (4,)
+        elif self.network_type == 'conv':
+            # CNN version
+            self.state_shape = (30, 30, 2)
+        else:
+            assert NotImplementedError()
 
         n_actions = 4
         self.action_space = spaces.Discrete(n_actions)
@@ -162,10 +171,17 @@ class CREnv(gym.Env):
 
     def board_embedding(self):
 
-        dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
-        # state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))
-        state = np.array(list(self.action_node)+dist_to_target)
-        # state = np.concatenate(( state, np.array(nets_vector.tolist()+obs_vector.tolist()) ), axis=0)
+
+        if self.network_type == 'dense':
+            dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
+            # state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))
+            state = np.array(list(self.action_node)+dist_to_target)
+            # state = np.concatenate(( state, np.array(nets_vector.tolist()+obs_vector.tolist()) ), axis=0)
+        elif self.network_type == 'conv':
+            state = np.dstack((self.board,self.path_board))
+            # state = self.board
+        else:
+            assert NotImplementedError()
 
         return state
 

@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from gym.utils import colorize
-
+import tensorflow.compat.v1 as tf_v1
 
 def dense_nn(inputs, layers_sizes, name="mlp", reuse=False, output_fn=None, dropout_keep_prob=None,
              batch_norm=False, training=True):
@@ -38,7 +38,7 @@ def dense_nn(inputs, layers_sizes, name="mlp", reuse=False, output_fn=None, drop
 def conv2d_net(inputs, layers_sizes, name="conv2d", conv_layers=2, with_pooling=True,
                dropout_keep_prob=None, training=True):
     print(colorize("Building conv net " + name, "green"))
-    print("inputs.shape =", inputs.shape)
+    # print("inputs.shape =", inputs.shape)
 
     with tf.variable_scope(name):
         for i in range(conv_layers):
@@ -55,11 +55,11 @@ def conv2d_net(inputs, layers_sizes, name="conv2d", conv_layers=2, with_pooling=
             #       (input_image_width - 1) // 2 + 1,
             #       output_dim,
             # ).
-            inputs = tf.layers.conv2d(inputs, 32, [5, 5], strides=[2, 2], name='conv' + str(i))
+            inputs = tf_v1.layers.conv2d(inputs, 30, [5, 5], strides=[2, 2], name='conv' + str(i))
             print('conv' + str(i) + '.shape =', inputs.shape)
 
             if with_pooling:
-                inputs = tf.layers.max_pooling2d(inputs, [2, 2], 2, name='pool' + str(i))
+                inputs = tf_v1.layers.max_pooling2d(inputs, [2, 2], 1, name='pool' + str(i))
                 print('pool' + str(i) + '.shape =', inputs.shape)
 
         flatten = tf.reshape(inputs, [-1, np.prod(inputs.shape.as_list()[1:])], name='flatten')

@@ -4,7 +4,7 @@ import tensorflow.compat.v1 as tf_v1
 from gym.spaces import Box, Discrete
 
 from memory import ReplayBuffer
-from networks import dense_nn
+from networks import dense_nn, conv2d_net
 
 
 class DqnPolicy(object):
@@ -12,11 +12,10 @@ class DqnPolicy(object):
                  training=True,
                  gamma=0.99,
                  batch_size=32,
-                 model_type='dense',
+                 model_type='conv',
                  model_params=None,
                  step_size=1,  # only > 1 if model_type is 'lstm'.
-                 layer_sizes=[32, 32],
-                 state_dim=4):
+                 layer_sizes=[32, 32]):
         """
         model_params: 'layer_sizes', 'step_size', 'lstm_layers', 'lstm_size'
         """
@@ -31,8 +30,17 @@ class DqnPolicy(object):
         self.model_params = model_params or {}
         self.layer_sizes = layer_sizes
         self.step_size = step_size
-        self.state_dim = state_dim
         self.sess = tf.Session()
+
+    @property
+    def state_dim(self):
+        # Returns: A list
+        if self.model_type == 'dense':
+            return [np.prod(list(self.env.observation_space.shape))]
+        elif self.model_type in ('conv', 'lstm'):
+            return list(self.env.observation_space.shape)
+        else:
+            assert NotImplementedError()
 
     def init_target_q_net(self):
         self.sess.run([v_t.assign(v) for v_t, v in zip(self.q_target_vars, self.q_vars)])
@@ -48,8 +56,8 @@ class DqnPolicy(object):
 
     def create_q_networks(self):
         # The first dimension should have batch_size * step_size
-        self.states = tf.placeholder(tf.float32, shape=(None, self.state_dim), name='state')
-        self.states_next = tf.placeholder(tf.float32, shape=(None, self.state_dim),
+        self.states = tf.placeholder(tf.float32, shape=(None, *self.state_dim), name='state')
+        self.states_next = tf.placeholder(tf.float32, shape=(None, *self.state_dim),
                                           name='state_next')
         self.actions = tf.placeholder(tf.int32, shape=(None,), name='action')
         self.actions_next = tf.placeholder(tf.int32, shape=(None,), name='action_next')
@@ -58,7 +66,8 @@ class DqnPolicy(object):
 
         # The output is a probability distribution over all the actions.
 
-        net_class, net_params = dense_nn, {}
+        # net_class, net_params = dense_nn, {}
+        net_class, net_params = conv2d_net, {}
 
         self.q = net_class(self.states, self.layer_sizes + [self.act_size], name='Q_primary',
                            **net_params)
@@ -100,7 +109,7 @@ class DqnPolicy(object):
             self.ep_reward = tf.placeholder(tf.float32, name='episode_reward')
             self.ep_reward_summ = tf_v1.summary.scalar('episode_reward', self.ep_reward)
 
-            self.merged_summary = tf_v1.summary.merge_all(key=tf.GraphKeys.SUMMARIES)
+            self.merged_summary = tf_v1.summary.merge_all(key=tf_v1.GraphKeys.SUMMARIES)
 
         self.sess.run(tf_v1.global_variables_initializer())
         self.init_target_q_net()
