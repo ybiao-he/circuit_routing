@@ -51,6 +51,7 @@ class CREnv(gym.Env):
         self.max_pair = int(np.amax(self.board))
         # self.max_pair = 4
         self.connection = False
+        self.dead_end = False
 
         # parse the board and get the starts and ends
         self.start = {}
@@ -82,11 +83,17 @@ class CREnv(gym.Env):
 
         action_tmp = self.directions[action]
 
-        action_node_pre = self.action_node
+        self.action_node_pre = self.action_node
 
-        self.board[self.action_node] = 1
+        # if self.board[self.action_node] > self.head_value:
+        #     self.board[self.action_node] = -1
+        # else:
+        #     self.board[self.action_node] = 1
+
+        # self.board[self.action_node] = 1
 
         self.connection = False
+        self.dead_end = False
 
         self.path_length += 1
 
@@ -95,14 +102,26 @@ class CREnv(gym.Env):
         # check/adjust new action node and set its value
         x = self.action_node[0]
         y = self.action_node[1]
+
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
-                self.goto_new_net(True)
+                self.goto_new_net(True, False)
+            elif self.action_node == self.finish[self.pairs_idx] and self.pairs_idx==self.max_pair:
+                self.board[self.action_node_pre] = 1
+                self.board[self.action_node] = 1
+            elif self.board[self.action_node]!=0:
+                self.action_node = self.action_node_pre
+                self.board[self.action_node] += 10
             else:
-                self.board[self.action_node] += self.head_value
+                self.board[self.action_node_pre] = 1
+                self.board[self.action_node] = self.head_value
         else:
-            self.action_node = action_node_pre
-            self.board[self.action_node] += self.head_value
+            self.action_node = self.action_node_pre
+            self.board[self.action_node] += 10
+
+        if len(self.getPossibleActions())==0 and self.pairs_idx<self.max_pair:
+            self.goto_new_net(False, True)
+
 
         state = self.board_embedding()
 
@@ -114,9 +133,11 @@ class CREnv(gym.Env):
 
         return state, reward, done, info
 
-    def goto_new_net(self, connection_sign):
+    def goto_new_net(self, connection_sign, dead_end):
 
+        self.board[self.action_node_pre] = 1
         self.connection = connection_sign
+        self.dead_end = dead_end
         self.pairs_idx += 1
         self.board[self.action_node] = 1
         self.action_node = self.start[self.pairs_idx]
@@ -124,7 +145,7 @@ class CREnv(gym.Env):
 
     def isTerminal(self):
 
-        if self.board[self.action_node] > self.head_value:
+        if self.pairs_idx==self.max_pair and (len(self.getPossibleActions())==0 or self.action_node==self.finish[self.max_pair]):
             return True
 
         return False
@@ -133,17 +154,30 @@ class CREnv(gym.Env):
     def getReward(self):
 
         if self.connection:
-            return 200
+            return 20
         if self.board[self.finish[self.max_pair]]>self.head_value and self.pairs_idx==self.max_pair:
-            return 500
-        if self.board[self.action_node]>self.head_value:
+            return 50
+        if self.dead_end:
             left_dist = 5*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
-            for i in range(self.pairs_idx+1, self.max_pair+1):
-                left_dist += 5*distance.cityblock(self.start[i], self.finish[i])
 
-            return -left_dist
+            return -left_dist/10
 
-        return -1
+        return -0.1
+
+    def getPossibleActions(self):
+
+        possible_actions = []
+        for d in self.directions:
+            x = self.action_node[0] + d[0]
+            y = self.action_node[1] + d[1]
+            if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
+                if (x,y) == self.finish[self.pairs_idx]:
+                    possible_actions = [(d[0], d[1])]
+                    break
+                elif self.board[(x,y)] == 0:
+                    possible_actions.append((d[0], d[1]))
+
+        return possible_actions
 
     def board_embedding(self):
 
