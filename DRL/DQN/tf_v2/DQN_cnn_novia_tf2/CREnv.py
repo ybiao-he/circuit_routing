@@ -51,7 +51,7 @@ class CREnv(gym.Env):
         self.max_pair = int(np.amax(self.board))
         # self.max_pair = 4
         self.connection = False
-        self.dead_end = False
+        # self.dead_end = False
 
         # parse the board and get the starts and ends
         self.start = {}
@@ -82,18 +82,10 @@ class CREnv(gym.Env):
     def step(self, action):
 
         action_tmp = self.directions[action]
+        self.connection = False
+        # self.dead_end = False
 
         self.action_node_pre = self.action_node
-
-        # if self.board[self.action_node] > self.head_value:
-        #     self.board[self.action_node] = -1
-        # else:
-        #     self.board[self.action_node] = 1
-
-        # self.board[self.action_node] = 1
-
-        self.connection = False
-        self.dead_end = False
 
         self.path_length += 1
 
@@ -105,7 +97,7 @@ class CREnv(gym.Env):
 
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
-                self.goto_new_net(True, False)
+                self.goto_new_net(True)
             elif self.action_node == self.finish[self.pairs_idx] and self.pairs_idx==self.max_pair:
                 self.board[self.action_node_pre] = 1
                 self.board[self.action_node] = 1
@@ -119,13 +111,13 @@ class CREnv(gym.Env):
             self.action_node = self.action_node_pre
             self.board[self.action_node] += 10
 
-        if len(self.getPossibleActions())==0 and self.pairs_idx<self.max_pair:
-            self.goto_new_net(False, True)
-
+        reward = self.getReward()
+        while len(self.getPossibleActions())==0 and (not self.isTerminal()):
+            self.action_node_pre = self.action_node
+            self.goto_new_net(False)
+            reward += self.getReward()
 
         state = self.board_embedding()
-
-        reward = self.getReward()
 
         done = self.isTerminal()
 
@@ -133,11 +125,10 @@ class CREnv(gym.Env):
 
         return state, reward, done, info
 
-    def goto_new_net(self, connection_sign, dead_end):
+    def goto_new_net(self, connection_sign):
 
         self.board[self.action_node_pre] = 1
         self.connection = connection_sign
-        self.dead_end = dead_end
         self.pairs_idx += 1
         self.board[self.action_node] = 1
         self.action_node = self.start[self.pairs_idx]
@@ -155,12 +146,13 @@ class CREnv(gym.Env):
 
         if self.connection:
             return 20
-        if self.board[self.finish[self.max_pair]]>self.head_value and self.pairs_idx==self.max_pair:
-            return 50
-        if self.dead_end:
+        if self.action_node==self.finish[self.max_pair] and self.pairs_idx==self.max_pair:
+            return 20
+        if len(self.getPossibleActions())==0:
             left_dist = 5*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
-
             return -left_dist/10
+        elif self.board[self.action_node]>self.head_value:
+            return -0.5
 
         return -0.1
 
