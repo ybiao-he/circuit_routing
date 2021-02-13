@@ -24,7 +24,7 @@ class CREnv(gym.Env):
 
         if self.network_type == 'dense':
             # Vanilla NN version
-            self.state_shape = (4,)
+            self.state_shape = (5,)
         elif self.network_type == 'conv':
             # CNN version
             self.state_shape = (30, 30)
@@ -45,6 +45,8 @@ class CREnv(gym.Env):
         # self.board = np.genfromtxt(board_rand, delimiter=',')
 
         self.head_value = 20
+
+        self.ill_action = []
         
         self.path_length = 0
 
@@ -88,7 +90,6 @@ class CREnv(gym.Env):
         self.action_node_pre = self.action_node
 
         self.path_length += 1
-
         # pre-determine new action node
         self.action_node = (self.action_node[0]+action_tmp[0], self.action_node[1]+action_tmp[1])
         # check/adjust new action node and set its value
@@ -98,16 +99,21 @@ class CREnv(gym.Env):
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
                 self.goto_new_net(True)
+                self.ill_action = []
             elif self.action_node == self.finish[self.pairs_idx] and self.pairs_idx==self.max_pair:
                 self.board[self.action_node_pre] = 1
                 self.board[self.action_node] = 1
+                self.ill_action = []
             elif self.board[self.action_node]!=0:
+                self.ill_action.append(action)
                 self.action_node = self.action_node_pre
                 self.board[self.action_node] += 10
             else:
+                self.ill_action = []
                 self.board[self.action_node_pre] = 1
                 self.board[self.action_node] = self.head_value
         else:
+            self.ill_action.append(action)
             self.action_node = self.action_node_pre
             self.board[self.action_node] += 10
 
@@ -115,13 +121,14 @@ class CREnv(gym.Env):
         while len(self.getPossibleActions())==0 and (not self.isTerminal()):
             self.action_node_pre = self.action_node
             self.goto_new_net(False)
+            self.ill_action = []
             reward += self.getReward()
 
         state = self.board_embedding()
 
         done = self.isTerminal()
 
-        info = {}
+        info = {"experience_ill_action": self.ill_action}
 
         return state, reward, done, info
 
@@ -176,8 +183,12 @@ class CREnv(gym.Env):
 
         if self.network_type == 'dense':
             dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
+            if self.board[self.action_node]>self.head_value:
+                sign = (self.board[self.action_node]-self.head_value)/5
+            else:
+                sign = 0
             # state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))
-            state = np.array(list(self.action_node)+dist_to_target)
+            state = np.array(list(self.action_node)+dist_to_target+[sign])
             # state = np.concatenate(( state, np.array(nets_vector.tolist()+obs_vector.tolist()) ), axis=0)
         elif self.network_type == 'conv':
             # state = np.dstack((self.board,self.path_board))

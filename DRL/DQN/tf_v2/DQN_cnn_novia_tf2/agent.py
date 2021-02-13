@@ -87,7 +87,7 @@ class Agent(object):
         elif frame_number >= self.replay_buffer_start_size + self.eps_annealing_frames:
             return self.slope_2*frame_number + self.intercept_2
 
-    def get_action(self, frame_number, state, evaluation=False):
+    def get_action(self, frame_number, state, ill_actions, evaluation=False):
         """Query the DQN for an action given a state
         Arguments:
             frame_number: Global frame number (used for epsilon)
@@ -102,10 +102,16 @@ class Agent(object):
 
         # With chance epsilon, take a random action
         if np.random.rand(1) < eps:
-            return np.random.randint(0, self.n_actions)
-
+            # return np.random.randint(0, self.n_actions)
+            all_actions = []
+            for i in range(self.n_actions):
+                if i not in ill_actions:
+                    all_actions.append(i)
+            return np.random.choice(all_actions)
         # Otherwise, query the DQN for an action
-        q_vals = self.DQN.predict(state.reshape((-1, self.input_shape[0], self.input_shape[1], self.history_length)))[0]
+        q_vals = self.DQN.predict(state.reshape((-1, self.input_shape[0])))[0]
+        for act in ill_actions:
+            q_vals[act] = float('-inf')
         return q_vals.argmax()
 
     def get_intermediate_representation(self, state, layer_names=None, stack_state=False):

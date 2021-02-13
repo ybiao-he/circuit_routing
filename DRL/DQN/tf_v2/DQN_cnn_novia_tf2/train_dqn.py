@@ -110,7 +110,7 @@ if __name__ == "__main__":
                     steps = 0
                     while not done:
 
-                        action = agent.get_action(frame_number, obs)
+                        action = agent.get_action(frame_number, obs, env.ill_action)
                         new_obs, reward, done, info = env.step(action)
                         frame_number += 1
                         epoch_frame += 1
@@ -161,7 +161,7 @@ if __name__ == "__main__":
                         # Breakout requires a "fire" action (action #1) to start the
                         # game each time a life is lost.
                         # Otherwise, the agent would sit around doing nothing.
-                        action = agent.get_action(frame_number, obs_eval, evaluation=True)
+                        action = agent.get_action(frame_number, obs_eval, env.ill_action, evaluation=True)
 
                         # Step action
                         obs_eval, reward, terminal, info = env.step(action)

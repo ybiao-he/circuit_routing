@@ -24,7 +24,7 @@ class CREnv(gym.Env):
 
         if self.network_type == 'dense':
             # Vanilla NN version
-            self.state_shape = (4,)
+            self.state_shape = (5,)
         elif self.network_type == 'conv':
             # CNN version
             self.state_shape = (30, 30)

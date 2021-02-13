@@ -26,10 +26,10 @@ CLIP_REWARD = False                # Any positive reward is +1, and negative rew
 TOTAL_FRAMES = 30000000           # Total number of frames to train for
 MAX_EPISODE_LENGTH = 18000        # Maximum length of an episode (in frames).  18000 frames / 60 fps = 5 minutes
 FRAMES_BETWEEN_EVAL = 100000      # Number of frames between evaluations
-EVAL_LENGTH = 10000               # Number of frames to evaluate for
-UPDATE_T = 1000               # Number of actions chosen between updating the target network
+EVAL_LENGTH = 1              # Number of frames to evaluate for
+UPDATE_T = 250               # Number of actions chosen between updating the target network
 
-DISCOUNT_FACTOR = 0.99            # Gamma, how much to discount future rewards
+DISCOUNT_FACTOR = 1.00            # Gamma, how much to discount future rewards
 MIN_REPLAY_BUFFER_SIZE = 50000    # The minimum size the replay buffer must be before we start to update the agent
 MEM_SIZE = 1000000                # The maximum size of the replay buffer
 

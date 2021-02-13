@@ -23,15 +23,15 @@ PRIORITY_SCALE = 0.7              # How much the replay buffer should sample bas
 CLIP_REWARD = False                # Any positive reward is +1, and negative reward is -1, 0 is unchanged
 
 
-TOTAL_FRAMES = 3000000           # Total number of frames to train for
+TOTAL_FRAMES = 30000000           # Total number of frames to train for
 MAX_EPISODE_LENGTH = 1800        # Maximum length of an episode (in frames).  18000 frames / 60 fps = 5 minutes
-FRAMES_BETWEEN_EVAL = 10000      # Number of frames between evaluations
+FRAMES_BETWEEN_EVAL = 100000      # Number of frames between evaluations
 EVAL_LENGTH = 1               # Number of frames to evaluate for
-UPDATE_T = 100               # Number of actions chosen between updating the target network
+UPDATE_T = 500               # Number of actions chosen between updating the target network
 
-DISCOUNT_FACTOR = 0.99            # Gamma, how much to discount future rewards
-MIN_REPLAY_BUFFER_SIZE = 5000    # The minimum size the replay buffer must be before we start to update the agent
-MEM_SIZE = 100000                # The maximum size of the replay buffer
+DISCOUNT_FACTOR = 1.00            # Gamma, how much to discount future rewards
+MIN_REPLAY_BUFFER_SIZE = 50000    # The minimum size the replay buffer must be before we start to update the agent
+MEM_SIZE = 1000000                # The maximum size of the replay buffer
 
 MAX_NOOP_STEPS = 20               # Randomly perform this number of actions before every evaluation to give it an element of randomness
 UPDATE_Q = 4                   # Number of actions between gradient descent steps
