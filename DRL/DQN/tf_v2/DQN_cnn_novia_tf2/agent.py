@@ -109,7 +109,7 @@ class Agent(object):
                     all_actions.append(i)
             return np.random.choice(all_actions)
         # Otherwise, query the DQN for an action
-        q_vals = self.DQN.predict(state.reshape((-1, self.input_shape[0])))[0]
+        q_vals = self.DQN.predict(state.reshape((-1, self.input_shape[0], self.input_shape[1], self.history_length)))[0]
         for act in ill_actions:
             q_vals[act] = float('-inf')
         return q_vals.argmax()
