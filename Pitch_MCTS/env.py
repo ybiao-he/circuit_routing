@@ -8,10 +8,10 @@ from copy import copy
 import numpy as np
 
 class CREnv():
-    def __init__(self, board):
+    def __init__(self):
 
-        self.board = np.genfromtxt("./board.csv", delimiter=',')
-        self.pairs_idx = 2
+        self.board = np.genfromtxt("./board0.csv", delimiter=',')
+        self.pairs_idx = 3
         self.action_space = [(-1, 0), (0, 1), (1, 0), (0, -1), (-1,-1), (0,0)]
         self.max_pair = int(np.amax(self.board))
 
@@ -32,6 +32,8 @@ class CREnv():
         x_corners, y_corners = self.get_pitch_node()
         self.p_x = [0]+x_corners+[self.board.shape[0]-1]
         self.p_y = [0]+y_corners+[self.board.shape[1]-1]
+        print(self.p_x)
+        print(self.p_y)
 
         self.path_length = 0
         self.dye_value = 20
@@ -88,32 +90,60 @@ class CREnv():
             # net_start_pith_x and net_start_pith_y are indices of self.p_x and self.p_y
             net_start_pith_x = self.find_pin_pitch(self.start[self.pairs_idx][0], self.p_x)
             net_start_pith_y = self.find_pin_pitch(self.start[self.pairs_idx][1], self.p_y)
-            if net_start_pith_x==self.start[self.pairs_idx][0] and net_start_pith_y==self.start[self.pairs_idx][1]:
-                
 
-            elif net_start_pith_x==self.start[self.pairs_idx][0] and net_start_pith_y!=self.start[self.pairs_idx][1]:
-
-            elif net_start_pith_x!=self.start[self.pairs_idx][0] and net_start_pith_y==self.start[self.pairs_idx][1]:
-
+            if self.p_x[net_start_pith_x]==self.start[self.pairs_idx][0] and self.p_y[net_start_pith_y]==self.start[self.pairs_idx][1]:
+                for a in [0,3,4,5]:
+                    region, start_node = self.extract_pitch_node(self.action_space[a], np.array([net_start_pith_x, net_start_pith_y]), self.start[self.pairs_idx])
+                    if self.check_reaching(region, start_node):
+                        possibleActions.append(self.action_space[a])
+            elif self.p_x[net_start_pith_x]==self.start[self.pairs_idx][0] and self.p_y[net_start_pith_y]!=self.start[self.pairs_idx][1]:
+                for a in [0,5]:
+                    region, start_node = self.extract_pitch_node(self.action_space[a], np.array([net_start_pith_x, net_start_pith_y]), self.start[self.pairs_idx])
+                    if self.check_reaching(region, start_node):
+                        possibleActions.append(self.action_space[a])
+            elif self.p_x[net_start_pith_x]!=self.start[self.pairs_idx][0] and self.p_y[net_start_pith_y]==self.start[self.pairs_idx][1]:
+                for a in [3,5]:
+                    region, start_node = self.extract_pitch_node(self.action_space[a], np.array([net_start_pith_x, net_start_pith_y]), self.start[self.pairs_idx])
+                    if self.check_reaching(region, start_node):
+                        possibleActions.append(self.action_space[a])
             else:
+                possibleActions.append(self.action_space[5])
 
-        self.op_board = self.dye_pitch((net_start_pith_x, net_start_pith_y))
+        # self.op_board = self.dye_pitch((net_start_pith_x, net_start_pith_y))
 
         return possibleActions
 
+    def extract_pitch_node(self, action, node_idx, start_node):
+
+        node_x = self.p_x[node_idx[0]]
+        node_y = self.p_y[node_idx[1]]
+
+        pnode_x_l = self.p_x[node_idx[0]+action[0]]
+        pnode_y_l = self.p_y[node_idx[1]+action[1]]
+
+        pnode_x_h = self.p_x[node_idx[0]+action[0]+1]
+        pnode_y_h = self.p_y[node_idx[1]+action[1]+1]
+
+        pitch = copy(self.board[pnode_x_l:pnode_x_h+1, pnode_y_l:pnode_y_h+1])
+        new_node_x = start_node[0] - pnode_x_l
+        new_node_y = start_node[1] - pnode_y_l
+
+        return pitch, np.array([new_node_x, new_node_y])
+
+
     def check_reaching(self, region, node):
         # node is a numpy array with 2 elements
-        if 0<node[0]<region.shape[0]-1 and 0<node[1]<region.shape[1]-1 /
-            and (region[tuple(node)]==0 or region[tuple(new_node)]==self.pairs_idx):
+        if 0<node[0]<region.shape[0]-1 and 0<node[1]<region.shape[1]-1:
             return True
 
         new_region = copy(region)
-        new_region[node] = 1
+        new_region[tuple(node)] = 1
         # get candidate new node
         directions = np.array([[-1, 0], [0, 1], [1, 0], [0, -1]])
         for d in directions:
             new_node = node + d
-            if 0<=new_node[0]<region.shape[0] and 0<=new_node[1]<region.shape[1]:
+            if 0<=new_node[0]<region.shape[0] and 0<=new_node[1]<region.shape[1] \
+                and (region[tuple(new_node)]==0 or region[tuple(new_node)]==self.pairs_idx):
                 if self.check_reaching(new_region, new_node):
                     return True
         return False
@@ -149,3 +179,7 @@ class CREnv():
         elif len(self.getPossibleActions()) == 0:
             return 1/(self.board.shape[0]*self.board.shape[1])
         return 0
+
+
+env = CREnv()
+print(env.getPossibleActions())
