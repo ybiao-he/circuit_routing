@@ -64,6 +64,8 @@ class Roller:
             ep_len += 1
             ep_rew += self._rews
 
+        ep_lens.append(ep_len)
+        ep_rews.append(ep_rew)
         print(np.mean(ep_rews))
 
         # if not self._dones:

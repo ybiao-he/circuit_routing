@@ -40,7 +40,7 @@ class CREnv(gym.Env):
         self.path_length = 0
 
         # self.max_pair = int(np.amax(self.board))
-        self.max_pair = 2
+        self.max_pair = 3
         self.connection = False
         # self.dead_end = False
 
