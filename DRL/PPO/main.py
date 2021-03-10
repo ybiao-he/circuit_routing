@@ -55,4 +55,6 @@ if __name__ == "__main__":
             tf.summary.scalar('eps_reward', np.mean(infos['ep_rews']), epoch)
             tf.summary.scalar('pi_loss', outs['pi_loss'], epoch)
             writer.flush()
+    model.save_weights( 'saved_model/oneNet_vec_oneHit', 
+                        save_format='tf')
     # env.close()                                                             # Dont forget closing the environment

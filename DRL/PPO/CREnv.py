@@ -40,9 +40,9 @@ class CREnv(gym.Env):
         self.path_length = 0
 
         # self.max_pair = int(np.amax(self.board))
-        self.max_pair = 3
+        self.max_pair = 2
         self.connection = False
-        # self.dead_end = False
+        self.collide = False
 
         # parse the board and get the starts and ends
         self.start = {}
@@ -74,7 +74,7 @@ class CREnv(gym.Env):
 
         action_tmp = self.directions[action]
         self.connection = False
-
+        self.collide = False
         self.action_node_pre = self.action_node
 
         self.path_length += 1
@@ -88,12 +88,9 @@ class CREnv(gym.Env):
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
             if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
                 self.goto_new_net(True)
-            elif self.action_node == self.finish[self.pairs_idx] and self.pairs_idx==self.max_pair:
-                self.board[self.action_node_pre] = 1
-                self.board[self.action_node] = 1
             elif self.board[self.action_node]!=0:
-                self.action_node = self.action_node_pre
-                self.board[self.action_node] += 10
+                self.collide = True
+                self.goto_new_net(False)
             else:
                 self.board[self.action_node_pre] = 1
                 self.board[self.action_node] = self.head_value
@@ -102,10 +99,10 @@ class CREnv(gym.Env):
             self.board[self.action_node] += 10
 
         reward = self.getReward()
-        while len(self.getPossibleActions())==0 and (not self.isTerminal()):
-            self.action_node_pre = self.action_node
-            self.goto_new_net(False)
-            reward += self.getReward()
+        # while len(self.getPossibleActions())==0 and (not self.isTerminal()):
+        #     self.action_node_pre = self.action_node
+        #     self.goto_new_net(False)
+        #     reward += self.getReward()
 
         state = self.board_embedding()
 
@@ -121,12 +118,14 @@ class CREnv(gym.Env):
         self.connection = connection_sign
         self.pairs_idx += 1
         self.board[self.action_node] = 1
-        self.action_node = self.start[self.pairs_idx]
-        self.board[self.action_node] = self.head_value
+        self.action_node_pre = self.action_node
+        if self.pairs_idx<=self.max_pair:
+            self.action_node = self.start[self.pairs_idx]
+            self.board[self.action_node] = self.head_value
 
     def isTerminal(self):
 
-        if self.pairs_idx==self.max_pair and (len(self.getPossibleActions())==0 or self.action_node==self.finish[self.max_pair]):
+        if self.pairs_idx>self.max_pair:
             return True
 
         return False
@@ -136,13 +135,9 @@ class CREnv(gym.Env):
 
         if self.connection:
             return 20
-        if self.action_node==self.finish[self.max_pair] and self.pairs_idx==self.max_pair:
-            return 20
-        if len(self.getPossibleActions())==0:
-            left_dist = 5*distance.cityblock(self.action_node, self.finish[self.pairs_idx])
+        if self.collide:
+            left_dist = 5*distance.cityblock(self.action_node_pre, self.finish[self.pairs_idx-1])
             return -left_dist/10
-        elif self.board[self.action_node]>self.head_value:
-            return -0.5
 
         return -0.1
 
@@ -163,7 +158,10 @@ class CREnv(gym.Env):
 
     def board_embedding(self):
 
-        dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
+        if self.pairs_idx<=self.max_pair:
+            dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx])]
+        else:
+            dist_to_target = [i-j for i, j in zip(self.action_node, self.finish[self.pairs_idx-1])]
         # state = np.array(list(self.action_node)+list(self.finish[self.pairs_idx]))
         state = np.array(list(self.action_node)+dist_to_target)
         # state = np.concatenate(( state, np.array(nets_vector.tolist()+obs_vector.tolist()) ), axis=0)
