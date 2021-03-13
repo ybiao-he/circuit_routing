@@ -81,8 +81,16 @@ def rollout(env, model, res_idx):
     while not done:
         path_x.append(obs_vec[0][0])
         path_y.append(obs_vec[0][1])
-        action_t, logp_t, value_t = model.get_action_logp_value({"vec_obs": obs_vec, "vis_obs": obs_vis})
-        # print(model.p_all({"vec_obs": obs_vec, "vis_obs": obs_vis}))
+        # action_t, logp_t, value_t = model.get_action_logp_value({"vec_obs": obs_vec, "vis_obs": obs_vis})
+        p_all = model.p_all({"vec_obs": obs_vec, "vis_obs": obs_vis})
+        possible_actions = env.env.getPossibleActions()
+
+        old_dist = p_all.numpy()[0]
+        # print(old_dist, possible_actions)
+        new_dist = adjust_act_dist(old_dist, possible_actions)
+        # print(new_dist)
+        action_t = np.random.choice(range(len(new_dist)), 1, p = new_dist)[0]
+
         print(obs_vec)
         obs_vec, obs_vis, rew, done, info = env.step(action_t)
         ep_rew += rew
@@ -96,6 +104,16 @@ def rollout(env, model, res_idx):
     draw_board(paths_x, paths_y, board, saved_fig_name)
     return ep_rew, ep_len
 
+def adjust_act_dist(dist, possible_acts):
+    new_dist = np.zeros(dist.shape)
+    for i in possible_acts:
+        new_dist[i] = dist[i]
+
+    if sum(new_dist)==0:
+        new_dist = np.ones(dist.shape)
+    new_dist = new_dist/sum(new_dist)
+
+    return new_dist
 
 if __name__ == "__main__":
 

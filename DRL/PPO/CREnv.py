@@ -39,8 +39,8 @@ class CREnv(gym.Env):
         
         self.path_length = 0
 
-        # self.max_pair = int(np.amax(self.board))
-        self.max_pair = 2
+        self.max_pair = int(np.amax(self.board))
+        # self.max_pair = 3
         self.connection = False
         self.collide = False
 
@@ -155,7 +155,12 @@ class CREnv(gym.Env):
                 elif self.board[(x,y)] == 0:
                     possible_actions.append((d[0], d[1]))
 
-        return possible_actions
+        ret = []
+        for i in range(len(possible_actions)):
+            ret.append(self.directions.index(possible_actions[i]))
+        return ret
+
+        # return possible_actions
 
     def board_embedding(self):
 
