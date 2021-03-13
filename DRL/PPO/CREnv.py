@@ -86,7 +86,7 @@ class CREnv(gym.Env):
         y = self.action_node[1]
 
         if 0 <= x < self.board.shape[0] and 0 <= y < self.board.shape[1]:
-            if self.action_node == self.finish[self.pairs_idx] and self.pairs_idx<self.max_pair:
+            if self.action_node == self.finish[self.pairs_idx]:
                 self.goto_new_net(True)
             elif self.board[self.action_node]!=0:
                 self.collide = True
@@ -95,8 +95,8 @@ class CREnv(gym.Env):
                 self.board[self.action_node_pre] = 1
                 self.board[self.action_node] = self.head_value
         else:
-            self.action_node = self.action_node_pre
-            self.board[self.action_node] += 10
+            self.collide = True
+            self.goto_new_net(False, out_range=True)
 
         reward = self.getReward()
         # while len(self.getPossibleActions())==0 and (not self.isTerminal()):
@@ -112,13 +112,14 @@ class CREnv(gym.Env):
 
         return state, reward, done, info
 
-    def goto_new_net(self, connection_sign):
+    def goto_new_net(self, connection_sign, out_range=False):
 
         self.board[self.action_node_pre] = 1
         self.connection = connection_sign
         self.pairs_idx += 1
-        self.board[self.action_node] = 1
-        self.action_node_pre = self.action_node
+        if not out_range:
+            self.board[self.action_node] = 1
+            self.action_node_pre = self.action_node
         if self.pairs_idx<=self.max_pair:
             self.action_node = self.start[self.pairs_idx]
             self.board[self.action_node] = self.head_value

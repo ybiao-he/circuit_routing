@@ -1,7 +1,15 @@
 import numpy as np
+import tensorflow as tf
+from config import Params
+from wrapper_env import env_wrapper
+import gym
+
+from nn_architecures import network_builder
+from models import CategoricalModel, GaussianModel
+from policy import Policy
+from CREnv import CREnv
+from copy import copy
 import os
-import cv2
-import shutil
 
 def draw_board(paths_x, paths_y, board, save_name):
     
@@ -55,3 +63,65 @@ def draw_board(paths_x, paths_y, board, save_name):
     ax.set_ylim(0,29)
     
     fig.savefig(save_name, bbox_inches='tight')
+
+def rollout(env, model, res_idx):
+
+    res_folder_name = "route_results"
+    saved_fig_name = os.path.join(res_folder_name, "route_board_{}.png".format(res_idx))
+
+    obs_vec, obs_vis, rew, done = env.reset()
+    board = np.absolute(np.genfromtxt("./board.csv", delimiter=','))
+    ep_len = 0
+    ep_rew = 0
+
+    paths_x = []
+    paths_y = []
+    path_x = []
+    path_y = []
+    while not done:
+        path_x.append(obs_vec[0][0])
+        path_y.append(obs_vec[0][1])
+        action_t, logp_t, value_t = model.get_action_logp_value({"vec_obs": obs_vec, "vis_obs": obs_vis})
+        # print(model.p_all({"vec_obs": obs_vec, "vis_obs": obs_vis}))
+        print(obs_vec)
+        obs_vec, obs_vis, rew, done, info = env.step(action_t)
+        ep_rew += rew
+        ep_len += 1
+
+        if env.env.pairs_idx-2>len(paths_x):
+            paths_x.append(path_x)
+            paths_y.append(path_y)
+            path_x = []
+            path_y = []
+    draw_board(paths_x, paths_y, board, saved_fig_name)
+    return ep_rew, ep_len
+
+
+if __name__ == "__main__":
+
+    # physical_devices = tf.config.list_physical_devices('GPU') 
+    # tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+    params = Params()          # Get Configuration | HORIZON = Steps per epoch
+
+    tf.random.set_seed(params.env.seed)                                     # Set Random Seeds for np and tf
+    np.random.seed(params.env.seed)
+
+    # env = create_batched_env(params.env.num_envs, params.env)               # Create Environment in multiprocessing mode
+    # env = gym.make('CartPole-v0')
+    env = CREnv()
+    env = env_wrapper(env, params.env)
+
+    network = network_builder(params.trainer.nn_architecure) \
+        (hidden_sizes=params.policy.hidden_sizes, env_info=env.env_info)    # Build Neural Network with Forward Pass
+
+    model = CategoricalModel if env.env_info.is_discrete else GaussianModel
+    model = model(network=network, env_info=env.env_info)                   # Build Model for Discrete or Continuous Spaces
+
+    # if params.trainer.load_model:
+    print('Loading Model ...')
+    model.load_weights("./saved_model/oneNet_vec_oneHit")           # Load model if load_model flag set to true
+
+    for i in range(50):
+        ep_rew, ep_len = rollout(env, model, i)
+        print(ep_rew, ep_len)
