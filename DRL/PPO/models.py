@@ -35,13 +35,18 @@ class CategoricalModel(tf.keras.Model):
         self.forward = network['forward']                                   # Get feed forward chain
         self.all_networks = network['trainable_networks']                   # Get all trainable networks
   
-    def pd(self, logits):
+    def pd(self, logits, mask=None):
+        if mask is not None:
+            new_dist = tf.math.log(logits.numpy()*mask)
+            new_dist = new_dist/sum(new_dist)
+
+            return tf.squeeze(tf.random.categorical(new_dist, 1), axis=-1)
         return tf.squeeze(tf.random.categorical(logits, 1), axis=-1)        # Draw from Random Categorical Distribution
 
     def predict(self, inputs):
         return self.forward(inp = inputs) 
         
-    def get_action_logp_value(self, obs):
+    def get_action_logp_value(self, obs, mask=None):
         """
             Returns:
 
@@ -50,7 +55,7 @@ class CategoricalModel(tf.keras.Model):
             actions --> drawn from normal distribution
         """
         logits, values = self.predict(obs)                                  # Returns np arrays on predict | Input: np array or tensor or list
-        actions = self.pd(logits)
+        actions = self.pd(logits, mask=None)
         logp_t = self.logp(logits, actions) 
         return np.squeeze(actions), np.squeeze(logp_t), np.squeeze(values) 
 
