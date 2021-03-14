@@ -160,6 +160,15 @@ class CREnv(gym.Env):
             ret.append(self.directions.index(possible_actions[i]))
         return ret
 
+    def compute_mask(self):
+        possible_acts = self.getPossibleActions()
+        mask = np.zeros(self.action_space.n)
+        for i in possible_acts:
+            mask[i] = 1
+        if len(possible_acts)==0:
+            mask = np.ones(self.action_space.n)
+        return mask
+
         # return possible_actions
 
     def board_embedding(self):

@@ -67,7 +67,7 @@ class TrainParams:
 
     trainer: str = "Proximal Policy Optimization"
     nn_architecure: str = "simple_actor_critic"                     # choose from architecture defined in nn_architectures
-    epochs: int = 600                                              # Number of epochs to run
+    epochs: int = 400                                              # Number of epochs to run
     steps_per_epoch: int = 1000                                      # Steps per epoch
     num_mini_batches: int = 50                                       # Num mini batches per grad. descent step
     gamma: float = 0.99                                             # discount factor

@@ -39,14 +39,17 @@ if __name__ == "__main__":
     # rollouts, infos = roller.rollout()
     # print(rollouts) 
 
+    target_rew = 30
+    avg_eps_rew = []
+
     tensorboard_dir = './tensorboard'
     writer = tf.summary.create_file_writer(tensorboard_dir)
     with writer.as_default():
 
         for epoch in range(params.trainer.epochs):                              # Main training loop for n epochs
-            rollouts, infos = roller.rollout()                                  # Get Rollout and infos
+            rollouts, infos = roller.rollout(epoch)                                  # Get Rollout and infos
             outs = ppo.update(rollouts)                                         # Push rollout in ppo and update policy accordingly
-            
+
             tf.summary.scalar('pi_loss', np.mean(outs['pi_loss']), epoch)
             tf.summary.scalar('v_loss', np.mean(outs['v_loss']), epoch)
             tf.summary.scalar('entropy_loss', np.mean(outs['entropy_loss']), epoch)
@@ -55,6 +58,13 @@ if __name__ == "__main__":
             tf.summary.scalar('eps_reward', np.mean(infos['ep_rews']), epoch)
             tf.summary.scalar('pi_loss', outs['pi_loss'], epoch)
             writer.flush()
+
+            avg_eps_rew.append(np.mean(infos['ep_rews']))
+            if len(avg_eps_rew)>10:
+                current_avg_rew = np.mean(avg_eps_rew[-10:])
+                if current_avg_rew>target_rew:
+                    break
+
     model.save_weights( 'saved_model/oneNet_vec_oneHit', 
                         save_format='tf')
     # env.close()                                                             # Dont forget closing the environment

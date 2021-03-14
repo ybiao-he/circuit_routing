@@ -37,10 +37,15 @@ class CategoricalModel(tf.keras.Model):
   
     def pd(self, logits, mask=None):
         if mask is not None:
-            new_dist = tf.math.log(logits.numpy()*mask)
+            logp_all = tf.nn.log_softmax(logits)
+            p = tf.math.exp(logp_all)[0]
+            new_dist = p.numpy()*mask
+            # print(new_dist, p, logits)
+            if sum(new_dist)==0:
+                new_dist = np.ones(len(new_dist))
             new_dist = new_dist/sum(new_dist)
-
-            return tf.squeeze(tf.random.categorical(new_dist, 1), axis=-1)
+            # print(mask, p, new_dist)
+            return np.random.choice(range(len(new_dist)), 1, p = new_dist)
         return tf.squeeze(tf.random.categorical(logits, 1), axis=-1)        # Draw from Random Categorical Distribution
 
     def predict(self, inputs):
@@ -55,7 +60,7 @@ class CategoricalModel(tf.keras.Model):
             actions --> drawn from normal distribution
         """
         logits, values = self.predict(obs)                                  # Returns np arrays on predict | Input: np array or tensor or list
-        actions = self.pd(logits, mask=None)
+        actions = self.pd(logits, mask=mask)
         logp_t = self.logp(logits, actions) 
         return np.squeeze(actions), np.squeeze(logp_t), np.squeeze(values) 
 

@@ -20,7 +20,7 @@ class Roller:
     def reset(self):
         self._obs_vec, self._obs_vis, self._rews, self._dones = self.env.reset()
 
-    def rollout(self):
+    def rollout(self, epoch):
 
         self.reset()
         
@@ -45,9 +45,13 @@ class Roller:
                 ep_rews.append(ep_rew)
                 ep_len = 0
                 ep_rew = 0
+            # if epoch>300:
+            #     mask = self.env.env.compute_mask()
+            #     actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis}, mask=mask)
+            # else:
+            #     actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis})
 
-            possible_acts = self.env.env.getPossibleActions()
-            mask = self.compute_mask(possible_acts)
+            mask = self.env.env.compute_mask()
             actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis}, mask=mask)
             # actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis})
             # print(self.model.p_all({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis}))
@@ -116,14 +120,6 @@ class Roller:
 
         return self._flattened_rollout(vec_obses, vis_obses, rews, dones, actions, logp, values, advs, returns), \
                {'ep_rews': ep_rews, 'ep_lens': ep_lens}
-    
-    def compute_mask(self, possible_acts):
-        mask = np.zeros(self.env.env_info.act_size)
-        for i in possible_acts:
-            mask[i] = 1
-        if len(possible_acts)==0:
-            mask = np.ones(self.env.env_info.act_size)
-        return mask
 
     def _flattened_rollout(self, vec_obses, vis_obses, rews, dones, actions, logp, values, advs, returns):
 
