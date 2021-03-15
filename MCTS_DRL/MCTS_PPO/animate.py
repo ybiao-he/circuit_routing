@@ -66,6 +66,7 @@ def draw_board(paths_x, paths_y, board, save_name):
     
     fig.savefig(save_name, bbox_inches='tight')
 
+# rollout using MCTS env
 def rollout(env, model, res_idx):
 
     res_folder_name = "route_results"
@@ -103,6 +104,25 @@ def rollout(env, model, res_idx):
     draw_board(paths_x, paths_y, board, saved_fig_name)
 
     return state.getReward()
+
+def MCTS_search(env, mcts_policy, fig_idx):
+
+    from mcts import mcts
+
+    env.reset()
+    state = env
+
+    reward_type = 'best'
+    node_select = 'best'
+    rollout_times = 20
+
+    MCTS = mcts(iterationLimit=rollout_times, rolloutPolicy=mcts_policy,
+            rewardType=reward_type, nodeSelect=node_select, explorationConstant=0.5/math.sqrt(2))
+    routed_paths = MCTS.search(initialState=state)
+
+    # plot circuit here, we need to revise source of mcts
+    
+    return routed_paths
 
 if __name__ == "__main__":
 
