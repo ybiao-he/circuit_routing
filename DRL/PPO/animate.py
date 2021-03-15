@@ -84,7 +84,7 @@ def rollout(env, model, res_idx):
         mask = env.env.compute_mask()
         action_t, logp_t, value_t = model.get_action_logp_value({"vec_obs": obs_vec, "vis_obs": obs_vis}, mask=mask)
 
-        print(obs_vec)
+        # print(obs_vec)
         obs_vec, obs_vis, rew, done, info = env.step(action_t)
         ep_rew += rew
         ep_len += 1

@@ -52,8 +52,8 @@ class Roller:
             #     actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis})
 
             mask = self.env.env.compute_mask()
-            actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis}, mask=mask)
-            # actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis})
+            # actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis}, mask=mask)
+            actions_t, logp_t, values_t = self.model.get_action_logp_value({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis})
             # print(self.model.p_all({"vec_obs": self._obs_vec, "vis_obs": self._obs_vis}))
 
             vec_obses.append(self._obs_vec) if self.env.env_info.is_vector else None

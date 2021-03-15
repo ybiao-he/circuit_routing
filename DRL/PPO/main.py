@@ -11,6 +11,8 @@ from models import CategoricalModel, GaussianModel
 from policy import Policy
 from CREnv import CREnv
 
+from animate import rollout
+
 if __name__ == "__main__":
 
     # physical_devices = tf.config.list_physical_devices('GPU') 
@@ -59,11 +61,14 @@ if __name__ == "__main__":
             tf.summary.scalar('pi_loss', outs['pi_loss'], epoch)
             writer.flush()
 
-            avg_eps_rew.append(np.mean(infos['ep_rews']))
-            if len(avg_eps_rew)>10:
-                current_avg_rew = np.mean(avg_eps_rew[-10:])
-                if current_avg_rew>target_rew:
-                    break
+            # avg_eps_rew.append(np.mean(infos['ep_rews']))
+            # if len(avg_eps_rew)>10:
+            #     current_avg_rew = np.mean(avg_eps_rew[-10:])
+            #     if current_avg_rew>target_rew:
+            #         break
+
+            ep_rew, ep_len = rollout(env, model, epoch)
+            print(ep_rew, ep_len)
 
     model.save_weights( 'saved_model/oneNet_vec_oneHit', 
                         save_format='tf')
