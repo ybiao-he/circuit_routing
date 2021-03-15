@@ -67,6 +67,8 @@ def draw_board(paths_x, paths_y, board, save_name):
 def rollout(env, model, res_idx):
 
     res_folder_name = "route_results"
+    if not os.path.isdir(res_folder_name):
+        os.mkdir(res_folder_name)
     saved_fig_name = os.path.join(res_folder_name, "route_board_{}.png".format(res_idx))
 
     obs_vec, obs_vis, rew, done = env.reset()
